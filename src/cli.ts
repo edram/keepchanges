@@ -68,13 +68,6 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     ? await getTagCommit(environment.cwd, tag)
     : undefined
   let releaseRef = taggedCommit ? tag : undefined
-  if (
-    parsed.options.release
-    && !taggedCommit
-    && (await git(environment.cwd, 'status', '--porcelain')).trim()
-  ) {
-    throw new Error(`Working tree must be clean to create tag ${tag}`)
-  }
   const remoteTaggedCommit = parsed.options.release
     ? await getRemoteTagCommit(environment.cwd, tag)
     : undefined

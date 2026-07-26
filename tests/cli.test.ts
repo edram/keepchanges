@@ -483,39 +483,35 @@ test('rejects conflicting local and remote release tags', async () => {
   ).toBe(remoteTag)
 })
 
-test('rejects a dirty working tree before accessing origin', async () => {
-  const { cwd } = await createReleaseRepository()
-  await command(
-    cwd,
-    'git',
-    'remote',
-    'set-url',
-    'origin',
-    join(cwd, 'missing.git'),
-  )
+test('releases while preserving unrelated working tree changes', async () => {
+  const { cwd, remote } = await createReleaseRepository()
   await writeFile(join(cwd, 'file.txt'), 'uncommitted change')
-  let requested = false
 
-  await expect(runCli(
+  await runCli(
     ['1.1.0', '--release', '--token', 'secret'],
     {
       cwd,
-      fetch: async () => {
-        requested = true
-        return Response.json({})
-      },
+      stdout: () => {},
+      fetch: githubReleaseFetch(),
     },
-  )).rejects.toThrow(
-    'Working tree must be clean to create tag v1.1.0',
   )
 
-  expect(requested).toBe(false)
   expect(
-    (await command(cwd, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
-  ).toBe('')
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
-    code: 'ENOENT',
-  })
+    (await command(cwd, 'git', 'status', '--short', 'file.txt')).stdout.trim(),
+  ).toBe('M file.txt')
+  expect(await readFile(join(cwd, 'file.txt'), 'utf8')).toBe(
+    'uncommitted change',
+  )
+  expect(
+    (await command(
+      remote,
+      'git',
+      'rev-list',
+      '-n',
+      '1',
+      'refs/tags/v1.1.0',
+    )).stdout.trim(),
+  ).not.toBe('')
 })
 
 test('previews a release without local or remote mutations with --dry', async () => {

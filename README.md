@@ -67,10 +67,10 @@ URL with the title, notes, tag, and prerelease fields filled in for manual
 publishing. Interactive terminals highlight refs and release statuses with
 color.
 
-When `v1.1.0` does not exist, the working tree must be clean. The command
-updates the release files, creates or reuses a release commit, creates an
-annotated tag, pushes `HEAD` and the tag to `origin`, then creates the provider
-release.
+When `v1.1.0` does not exist, the command updates the release files, creates or
+reuses a release commit, creates an annotated tag, pushes `HEAD` and the tag to
+`origin`, then creates the provider release. Unrelated working tree and staged
+changes remain uncommitted.
 
 When the tag already exists locally or on `origin`, it remains immutable. The
 command generates notes from the previous release tag to `v1.1.0`, pushes a
