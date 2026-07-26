@@ -14,10 +14,10 @@
     "url": "https://github.com/edram/gitchangelog/issues"
   },
   "bin": {
-    "changelog": "./dist/bin.mjs"
+    "changelog": "./dist/cli.mjs"
   },
   "exports": {
-    ".": "./dist/index.mjs",
+    ".": "./dist/cli.mjs",
     "./cli": "./dist/cli.mjs",
     "./package.json": "./package.json"
   },

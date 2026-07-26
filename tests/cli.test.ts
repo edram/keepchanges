@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
-import { runCli } from '../src'
+import { runCli } from '../src/cli'
 import {
   command,
   commit,

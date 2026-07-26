@@ -11,7 +11,7 @@ test('the packaged changelog command can generate a dry-run preview', async () =
     await readFile(join(packageRoot, 'package.json'), 'utf8'),
   )
   expect(packageJson.bin).toEqual({
-    changelog: './dist/bin.mjs',
+    changelog: './dist/cli.mjs',
   })
 
   const cwd = await createRepository('gitchangelog-bin-')
