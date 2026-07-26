@@ -53,15 +53,24 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   if (parsed.options.release) {
     if (!repository)
       throw new Error('A supported repository is required to release')
-    if (!parsed.options.dry && !token)
-      throw new Error('A repository token is required to release')
-    if (!repository.provider.publishRelease)
+    if (
+      !repository.provider.publishRelease
+      && !repository.provider.manualReleaseUrl
+    ) {
       throw new Error(`${repository.provider.name} does not support releases`)
+    }
   }
   let taggedCommit = parsed.options.release
     ? await getTagCommit(environment.cwd, tag)
     : undefined
   let releaseRef = taggedCommit ? tag : undefined
+  if (
+    parsed.options.release
+    && !taggedCommit
+    && (await git(environment.cwd, 'status', '--porcelain')).trim()
+  ) {
+    throw new Error(`Working tree must be clean to create tag ${tag}`)
+  }
   const remoteTaggedCommit = parsed.options.release
     ? await getRemoteTagCommit(environment.cwd, tag)
     : undefined
@@ -87,13 +96,6 @@ export async function runCli(args: string[], environment: CliEnvironment) {
       taggedCommit = await getTagCommit(environment.cwd, tag)
       releaseRef = tag
     }
-  }
-  if (
-    parsed.options.release
-    && !taggedCommit
-    && (await git(environment.cwd, 'status', '--porcelain')).trim()
-  ) {
-    throw new Error(`Working tree must be clean to create tag ${tag}`)
   }
   const from = taggedCommit
     ? await getPreviousTag(environment.cwd, tag, releaseRef!)
@@ -169,10 +171,20 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     prerelease: version.includes('-'),
   }
   const publishRepositoryRelease = async () => {
+    if (!token || !repository!.provider.publishRelease) {
+      const url = repository!.provider.manualReleaseUrl?.(
+        repository!,
+        repositoryRelease,
+      )
+      if (!url)
+        throw new Error('A repository token is required to release')
+      stdout(`Create ${repository!.provider.name} release manually:\n${url}\n`)
+      return
+    }
     const result = await repository!.provider.publishRelease!(
       repository!,
       repositoryRelease,
-      token!,
+      token,
       environment.fetch ?? globalThis.fetch,
     )
     stdout(

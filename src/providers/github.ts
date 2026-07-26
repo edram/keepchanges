@@ -27,6 +27,17 @@ export const githubProvider: RepositoryProvider = {
     return `${repository.webUrl}/compare/${from}...${to}`
   },
 
+  manualReleaseUrl(repository, release) {
+    const url = new URL(`${repository.webUrl}/releases/new`)
+    url.search = new URLSearchParams({
+      title: release.name,
+      body: release.body,
+      tag: release.tag,
+      prerelease: String(release.prerelease),
+    }).toString()
+    return url.toString()
+  },
+
   async resolveAuthors(commits, repository, token, fetch) {
     const headers = {
       accept: 'application/vnd.github.v3+json',

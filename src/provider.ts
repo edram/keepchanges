@@ -45,4 +45,8 @@ export interface RepositoryProvider {
     token: string,
     fetch: typeof globalThis.fetch,
   ) => Promise<RepositoryReleaseResult>
+  manualReleaseUrl?: (
+    repository: Repository,
+    release: RepositoryRelease,
+  ) => string
 }

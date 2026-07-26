@@ -243,6 +243,43 @@ test('creates and pushes a tag before publishing a GitHub release', async () => 
   expect(publish?.body?.body).not.toContain('## v1.1.0')
 })
 
+test('provides a prefilled manual release link without a token', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  let output = ''
+
+  await runCli(
+    ['1.1.0', '--release'],
+    {
+      cwd,
+      env: {},
+      stdout: value => output += value,
+      fetch: async () => {
+        throw new Error('Provider API must not be called without a token')
+      },
+    },
+  )
+
+  expect(output).toContain('Create GitHub release manually:\n')
+  const url = new URL(output.trim().split('\n').at(-1)!)
+  expect(`${url.origin}${url.pathname}`).toBe(
+    'https://github.com/example/project/releases/new',
+  )
+  expect(url.searchParams.get('title')).toBe('v1.1.0')
+  expect(url.searchParams.get('tag')).toBe('v1.1.0')
+  expect(url.searchParams.get('prerelease')).toBe('false')
+  expect(url.searchParams.get('body')).toContain('### 🚀 Features')
+  expect(
+    (await command(
+      remote,
+      'git',
+      'rev-list',
+      '-n',
+      '1',
+      'refs/tags/v1.1.0',
+    )).stdout.trim(),
+  ).not.toBe('')
+})
+
 test('reuses a release commit created before --release', async () => {
   const { cwd } = await createReleaseRepository()
   await runCli(
@@ -430,8 +467,16 @@ test('rejects conflicting local and remote release tags', async () => {
   ).toBe(remoteTag)
 })
 
-test('requires a clean working tree before creating a release tag', async () => {
+test('rejects a dirty working tree before accessing origin', async () => {
   const { cwd } = await createReleaseRepository()
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'set-url',
+    'origin',
+    join(cwd, 'missing.git'),
+  )
   await writeFile(join(cwd, 'file.txt'), 'uncommitted change')
   let requested = false
 
