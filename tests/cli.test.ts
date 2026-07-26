@@ -539,7 +539,16 @@ test('previews a release without local or remote mutations with --dry', async ()
   )
 
   expect(requested).toBe(false)
-  expect(output).toContain('## v1.1.0')
+  expect(output).toMatch(/^gitchangelog v\d+\.\d+\.\d+\n/)
+  expect(output).toContain('v1.0.0 -> v1.1.0 (2 commits)\n')
+  expect(output).toContain('### 🚀 Features')
+  expect(output).not.toContain('## v1.1.0')
+  expect(output).toContain(
+    '--------------\nDry run. Release skipped.\n\nUsing the following link to create it manually:\n',
+  )
+  const url = new URL(output.trim().split('\n').at(-1)!)
+  expect(url.searchParams.get('tag')).toBe('v1.1.0')
+  expect(url.searchParams.get('body')).toContain('### 🚀 Features')
   expect(
     (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
   ).toBe(head)

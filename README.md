@@ -64,7 +64,8 @@ GITHUB_TOKEN=github_pat_xxx pnpm dlx gitchangelog 1.1.0 --release
 The token is optional. Before publishing, the command prints the compared refs,
 commit count, and complete release notes. Without a token, it prints a GitHub
 URL with the title, notes, tag, and prerelease fields filled in for manual
-publishing.
+publishing. Interactive terminals highlight refs and release statuses with
+color.
 
 When `v1.1.0` does not exist, the working tree must be clean. The command
 updates the release files, creates or reuses a release commit, creates an
@@ -78,9 +79,10 @@ provider release. A local and remote tag with different targets causes the
 release to stop without force-pushing.
 
 Stable releases compare with the previous stable tag, while prereleases compare
-with the nearest previous tag. Use `--release --dry` without a token to preview
-without writing files, resolving remote authors, committing, tagging, pushing,
-or calling the provider API.
+with the nearest previous tag. Use `--release --dry` without a token to print
+the release preview and prefilled manual URL without writing files, resolving
+remote authors, committing, tagging, pushing, or calling the provider API.
+Plain `--dry` continues to preview the complete changelog file.
 
 The current release recognizes `feat` and `fix` commits, optional scopes,
 breaking-change exclamation marks, and `BREAKING CHANGE` or

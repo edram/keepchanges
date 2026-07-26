@@ -6,6 +6,7 @@ import type {
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
+import ansis from 'ansis'
 import { cac } from 'cac'
 import { x } from 'tinyexec'
 import { version as packageVersion } from '../package.json'
@@ -24,6 +25,7 @@ export interface CliEnvironment {
   env?: NodeJS.ProcessEnv
   stdout?: (value: string) => void
   fetch?: typeof globalThis.fetch
+  colors?: typeof ansis
 }
 
 export async function runCli(args: string[], environment: CliEnvironment) {
@@ -43,6 +45,7 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   const tag = `v${version}`
   const env = environment.env ?? process.env
   const stdout = environment.stdout ?? (value => process.stdout.write(value))
+  const colors = environment.colors ?? ansis
 
   const latestTag = await x(
     'git',
@@ -171,28 +174,39 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     body: releaseBody,
     prerelease: version.includes('-'),
   }
-  const publishRepositoryRelease = async () => {
+  const printReleasePreview = () => {
     stdout([
-      `gitchangelog v${packageVersion}`,
-      `${from || comparisonFrom} -> ${tag} (${commits.length} commits)`,
-      '--------------',
+      colors.dim(`git${colors.bold('changelog')} v${packageVersion}`),
+      `${colors.cyan(from || comparisonFrom)}${colors.dim(' -> ')}${colors.blue(tag)}${colors.dim(` (${commits.length} commits)`)}`,
+      colors.dim('--------------'),
       '',
       releaseBody.replaceAll('&nbsp;', ''),
       '',
-      '--------------',
+      colors.dim('--------------'),
       '',
     ].join('\n'))
-    if (!token || !repository!.provider.publishRelease) {
-      const url = repository!.provider.manualReleaseUrl?.(
-        repository!,
-        repositoryRelease,
+  }
+  const printManualReleaseUrl = () => {
+    const url = repository!.provider.manualReleaseUrl?.(
+      repository!,
+      repositoryRelease,
+    )
+    if (url) {
+      stdout(
+        `${colors.yellow('Using the following link to create it manually:')}\n${colors.yellow(url)}\n`,
       )
-      if (!url)
+    }
+    return url
+  }
+  const publishRepositoryRelease = async () => {
+    printReleasePreview()
+    if (!token || !repository!.provider.publishRelease) {
+      if (!repository!.provider.manualReleaseUrl)
         throw new Error('A repository token is required to release')
       stdout(
-        `No ${repository!.provider.name} token found, specify it via GITHUB_TOKEN env. Release skipped.\n\n`,
+        `${colors.red(`No ${repository!.provider.name} token found, specify it via GITHUB_TOKEN env. Release skipped.`)}\n\n`,
       )
-      stdout(`Using the following link to create it manually:\n${url}\n`)
+      printManualReleaseUrl()
       return
     }
     const result = await repository!.provider.publishRelease!(
@@ -202,7 +216,7 @@ export async function runCli(args: string[], environment: CliEnvironment) {
       environment.fetch ?? globalThis.fetch,
     )
     stdout(
-      `${capitalize(result.action)} ${repository!.provider.name} release: ${result.url}\n`,
+      `${colors.green(`${capitalize(result.action)} ${repository!.provider.name} release: ${result.url}`)}\n`,
     )
   }
   const outputPath = resolve(
@@ -219,7 +233,14 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   const changelog = insertRelease(currentChangelog, release)
 
   if (parsed.options.dry) {
-    stdout(changelog)
+    if (parsed.options.release) {
+      printReleasePreview()
+      stdout(`${colors.yellow('Dry run. Release skipped.')}\n\n`)
+      printManualReleaseUrl()
+    }
+    else {
+      stdout(changelog)
+    }
     return
   }
 
