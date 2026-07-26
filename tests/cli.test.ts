@@ -11,7 +11,7 @@ const expectedChangelog = [
   '',
   '### 🚀 Features',
   '',
-  '- Add CLI',
+  '- Add CLI &nbsp;-&nbsp; by **Test Author**',
   '',
 ].join('\n')
 
@@ -121,11 +121,11 @@ test('groups fix commits under Bug Fixes', async () => {
       '',
       '### 🚀 Features',
       '',
-      '- Add CLI',
+      '- Add CLI &nbsp;-&nbsp; by **Test Author**',
       '',
       '### 🐞 Bug Fixes',
       '',
-      '- Handle invalid input',
+      '- Handle invalid input &nbsp;-&nbsp; by **Test Author**',
       '',
     ].join('\n'),
   )
@@ -140,6 +140,184 @@ test('renders a conventional commit scope', async () => {
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
     '- **parser**: Handle separators',
   )
+})
+
+test('renders the Git author for each commit', async () => {
+  const cwd = await createRepository()
+
+  await runCli(['1.1.0'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    '- Add CLI &nbsp;-&nbsp; by **Test Author**',
+  )
+})
+
+test('renders co-authors as commit participants', async () => {
+  const cwd = await createRepository()
+  await commit(
+    cwd,
+    'fix: support pairs',
+    'Co-Authored-By: Second Author <second@example.com>',
+  )
+
+  await runCli(['1.1.0'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    '- Support pairs &nbsp;-&nbsp; by **Test Author**, **Second Author**',
+  )
+})
+
+test('excludes bot commit participants', async () => {
+  const cwd = await createRepository()
+  await commit(
+    cwd,
+    'fix: update dependencies',
+    [
+      'Co-Authored-By: automation[bot] <automation@example.com>',
+      'Co-Authored-By: Dependabot <dependabot@example.com>',
+      'Co-Authored-By: Release (bot) <release@example.com>',
+    ].join('\n'),
+  )
+
+  await runCli(['1.1.0'], { cwd })
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog).toContain(
+    '- Update dependencies &nbsp;-&nbsp; by **Test Author**',
+  )
+  expect(changelog).not.toMatch(/\[bot\]|dependabot|\(bot\)/i)
+})
+
+test('omits empty author details for bot-authored commits', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'config', 'user.name', 'automation[bot]')
+  await command(cwd, 'git', 'config', 'user.email', 'bot@example.com')
+  await commit(cwd, 'fix: automated update')
+
+  await runCli(['1.1.0'], { cwd })
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog).toContain('\n- Automated update\n')
+  expect(changelog).not.toContain('by **automation[bot]**')
+})
+
+test('resolves GitHub author logins with --token', async () => {
+  const cwd = await createRepository()
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:example/project.git',
+  )
+  let requestUrl = ''
+
+  await runCli(
+    ['1.1.0', '--token', 'secret'],
+    {
+      cwd,
+      fetch: async (input, init) => {
+        requestUrl = String(input)
+        expect(init?.headers).toMatchObject({
+          authorization: 'token secret',
+        })
+        return new Response(JSON.stringify({
+          items: [{ login: 'test-author' }],
+        }))
+      },
+    },
+  )
+
+  expect(requestUrl).toContain('/search/users?q=')
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    '- Add CLI &nbsp;-&nbsp; by @test-author',
+  )
+})
+
+test('resolves GitHub author logins with an environment token', async () => {
+  for (const tokenName of ['GITHUB_TOKEN', 'GH_TOKEN']) {
+    const cwd = await createRepository()
+    await writeFile(
+      join(cwd, 'package.json'),
+      JSON.stringify({
+        repository: 'https://github.com/example/project',
+      }),
+    )
+
+    await runCli(
+      ['1.1.0'],
+      {
+        cwd,
+        env: { [tokenName]: 'secret' },
+        fetch: async () => new Response(JSON.stringify({
+          items: [{ login: 'environment-author' }],
+        })),
+      },
+    )
+
+    await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+      '- Add CLI &nbsp;-&nbsp; by @environment-author',
+    )
+  }
+})
+
+test('resolves the primary author login from the GitHub commit', async () => {
+  const cwd = await createRepository()
+  await writeFile(
+    join(cwd, 'package.json'),
+    JSON.stringify({
+      repository: 'https://github.com/example/project',
+    }),
+  )
+  const requests: string[] = []
+
+  await runCli(
+    ['1.1.0', '--token', 'secret'],
+    {
+      cwd,
+      fetch: async (input) => {
+        const url = String(input)
+        requests.push(url)
+        return new Response(JSON.stringify(
+          url.includes('/commits/')
+            ? { author: { login: 'commit-author' } }
+            : { items: [] },
+        ))
+      },
+    },
+  )
+
+  expect(requests.some(url => url.includes('/commits/'))).toBe(true)
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    '- Add CLI &nbsp;-&nbsp; by @commit-author',
+  )
+})
+
+test('uses a resolved login for every commit by the same author', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await commit(cwd, 'fix: handle repeated authors')
+  await writeFile(
+    join(cwd, 'package.json'),
+    JSON.stringify({
+      repository: 'https://github.com/example/project',
+    }),
+  )
+
+  await runCli(
+    ['1.1.0', '--token', 'secret'],
+    {
+      cwd,
+      fetch: async () => new Response(JSON.stringify({
+        items: [{ login: 'test-author' }],
+      })),
+    },
+  )
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog.match(/by @test-author/g)).toHaveLength(2)
+  expect(changelog).not.toContain('**Test Author**')
 })
 
 test('links commits using an SSH origin repository', async () => {
@@ -159,7 +337,7 @@ test('links commits using an SSH origin repository', async () => {
   await runCli(['1.1.0'], { cwd })
 
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    `- Add CLI &nbsp;-&nbsp; [<samp>(${hash.slice(0, 5)})</samp>](https://github.com/example/project/commit/${hash})`,
+    `- Add CLI &nbsp;-&nbsp; by **Test Author** [<samp>(${hash.slice(0, 5)})</samp>](https://github.com/example/project/commit/${hash})`,
   )
 })
 
@@ -319,7 +497,7 @@ test('inserts a release before existing changelog history', async () => {
       '',
       '### 🚀 Features',
       '',
-      '- Add CLI',
+      '- Add CLI &nbsp;-&nbsp; by **Test Author**',
       '',
       '## v1.0.0',
       '',

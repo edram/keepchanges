@@ -1,52 +1,49 @@
+import type {
+  Repository,
+  RepositoryAuthor,
+  RepositoryCommit,
+} from './provider'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { cac } from 'cac'
 import { x } from 'tinyexec'
+import { resolveRepository } from './repository'
+
+interface Commit extends RepositoryCommit {
+  type: string
+  scope: string
+  description: string
+  isBreaking: boolean
+}
 
 export interface CliEnvironment {
   cwd: string
+  env?: NodeJS.ProcessEnv
   stdout?: (value: string) => void
+  fetch?: typeof globalThis.fetch
 }
 
 export async function runCli(args: string[], environment: CliEnvironment) {
   const cli = cac('changelog')
     .option('--output <path>', 'Changelog file path')
     .option('--dry', 'Print the changelog without writing it')
+    .option('--token <token>', 'Repository token for resolving authors')
 
   const parsed = cli.parse(['node', 'changelog', ...args], { run: false })
   const versionArgument = parsed.args[0]
   if (!versionArgument)
     throw new Error('A release version is required')
   const version = versionArgument.replace(/^v/, '')
+  const env = environment.env ?? process.env
 
   const latestTag = await x(
     'git',
     ['describe', '--tags', '--abbrev=0'],
     { nodeOptions: { cwd: environment.cwd } },
   )
-  let repositorySource = await readFile(
-    resolve(environment.cwd, 'package.json'),
-    'utf8',
-  ).then((contents) => {
-    const repository = (
-      JSON.parse(contents) as {
-        repository?: string | { url?: string }
-      }
-    ).repository
-    return typeof repository === 'string' ? repository : repository?.url || ''
-  }).catch(() => '')
-
-  if (!repositorySource) {
-    repositorySource = (
-      await x(
-        'git',
-        ['remote', 'get-url', 'origin'],
-        { nodeOptions: { cwd: environment.cwd } },
-      )
-    ).stdout.trim()
-  }
-  const repository = parseRepositoryUrl(repositorySource)
+  const repository = await resolveRepository(environment.cwd)
+  const token = repository?.provider.token(parsed.options.token, env)
   const from = latestTag.stdout.trim()
   const comparisonFrom = from || (
     repository
@@ -62,12 +59,26 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     environment.cwd,
     'log',
     from ? `${from}..HEAD` : 'HEAD',
-    '--format=%h%x00%s%x00%b%x00',
+    '--format=%h%x00%an%x00%ae%x00%s%x00%b%x00',
   )
 
   const commits = parseGitLog(log)
-    .map(commit => parseCommit(commit.hash, commit.subject, commit.body))
+    .map(commit => parseCommit(
+      commit.hash,
+      commit.subject,
+      commit.body,
+      commit.author,
+    ))
     .filter(commit => commit !== null)
+
+  if (token && repository) {
+    await repository.provider.resolveAuthors?.(
+      commits,
+      repository,
+      token,
+      environment.fetch ?? globalThis.fetch,
+    )
+  }
 
   const release = [
     `## v${version}`,
@@ -89,7 +100,7 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     ...(repository && comparisonFrom
       ? [
           '',
-          `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](${repository}/compare/${comparisonFrom}...v${version})`,
+          `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on ${repository.provider.name}](${repository.provider.compareUrl(repository, comparisonFrom, `v${version}`)})`,
         ]
       : []),
     '',
@@ -139,35 +150,60 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, character => htmlEntities[character])
 }
 
-function parseRepositoryUrl(remote: string) {
-  const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(remote)
-  return match ? `https://github.com/${match[1]}` : ''
-}
-
 function parseGitLog(log: string) {
   const fields = log.split('\0')
-  const commits: Array<{ hash: string, subject: string, body: string }> = []
+  const commits: Array<{
+    hash: string
+    subject: string
+    body: string
+    author: RepositoryAuthor
+  }> = []
 
-  for (let index = 0; index + 2 < fields.length; index += 3) {
-    const subject = fields[index + 1].trim()
+  for (let index = 0; index + 4 < fields.length; index += 5) {
+    const subject = fields[index + 3].trim()
     if (subject)
       commits.push({
         hash: fields[index].trim(),
         subject,
-        body: fields[index + 2],
+        body: fields[index + 4],
+        author: {
+          name: fields[index + 1].trim(),
+          email: fields[index + 2].trim(),
+        },
       })
   }
 
   return commits
 }
 
-function parseCommit(hash: string, subject: string, body: string) {
+function parseCommit(
+  hash: string,
+  subject: string,
+  body: string,
+  author: RepositoryAuthor,
+): Commit | null {
   const match = /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<description>.+)$/i.exec(subject)
   if (!match?.groups)
     return null
 
+  const authors = [author]
+  for (const coAuthor of body.matchAll(
+    /^Co-Authored-By:\s*(.+?)\s*<([^>]+)>$/gim,
+  )) {
+    const email = coAuthor[2].trim()
+    if (!authors.some(author => author.email === email)) {
+      authors.push({
+        name: coAuthor[1].trim(),
+        email,
+      })
+    }
+  }
+
   return {
     hash,
+    authors: authors.filter(
+      author => !/\[bot\]|dependabot|\(bot\)/i.test(author.name),
+    ),
     type: match.groups.type.toLowerCase(),
     scope: match.groups.scope || '',
     description: match.groups.description,
@@ -177,23 +213,26 @@ function parseCommit(hash: string, subject: string, body: string) {
 }
 
 function renderSection(
-  commits: Array<{
-    type: string
-    scope: string
-    description: string
-    hash: string
-    isBreaking: boolean
-  }>,
+  commits: Commit[],
   title: string,
-  repository: string,
+  repository: Repository | undefined,
 ) {
   const lines = commits
     .map((commit) => {
       const scope = commit.scope ? `**${escapeHtml(commit.scope)}**: ` : ''
       const reference = repository
-        ? ` &nbsp;-&nbsp; [<samp>(${commit.hash.slice(0, 5)})</samp>](${repository}/commit/${commit.hash})`
+        ? `[<samp>(${commit.hash.slice(0, 5)})</samp>](${repository.provider.commitUrl(repository, commit.hash)})`
         : ''
-      return `${scope}${escapeHtml(capitalize(commit.description))}${reference}`
+      const authors = commit.authors
+        .map(author => author.login
+          ? `@${author.login}`
+          : `**${escapeHtml(author.name)}**`)
+        .join(', ')
+      const details = [authors ? `by ${authors}` : '', reference]
+        .filter(Boolean)
+        .join(' ')
+      const suffix = details ? ` &nbsp;-&nbsp; ${details}` : ''
+      return `${scope}${escapeHtml(capitalize(commit.description))}${suffix}`
     })
     .reverse()
 

@@ -18,6 +18,10 @@ Repository links are inferred from `package.json#repository`, then from the
 Git `origin`. When a GitHub repository is found, each entry links to its commit
 and the release includes a comparison link to the requested version tag.
 
+Commit authors and `Co-Authored-By` participants are included in each entry,
+with bot accounts omitted. Authors use their Git names by default. Provide
+`--token <token>`, `GITHUB_TOKEN`, or `GH_TOKEN` to resolve GitHub usernames.
+
 Use a different output file:
 
 ```bash
