@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { runCli } from '../src'
-import { commit, createRepository } from './git'
+import { command, commit, createRepository } from './git'
 
 const expectedChangelog = [
   '# Changelog',
@@ -21,6 +21,17 @@ test('writes changes since the latest tag to CHANGELOG.md', async () => {
   await runCli(['1.1.0'], { cwd })
 
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toBe(expectedChangelog)
+})
+
+test('writes the first release when the repository has no tags', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+
+  await runCli(['0.0.1'], { cwd })
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog).toContain('## v0.0.1')
+  expect(changelog).toContain('- Add CLI')
 })
 
 test('accepts a release version with a v prefix', async () => {

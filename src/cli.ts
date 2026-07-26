@@ -20,13 +20,16 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     throw new Error('A release version is required')
   const version = versionArgument.replace(/^v/, '')
 
-  const from = (
-    await git(environment.cwd, 'describe', '--tags', '--abbrev=0')
-  ).trim()
+  const latestTag = await x(
+    'git',
+    ['describe', '--tags', '--abbrev=0'],
+    { nodeOptions: { cwd: environment.cwd } },
+  )
+  const from = latestTag.stdout.trim()
   const log = await git(
     environment.cwd,
     'log',
-    `${from}..HEAD`,
+    from ? `${from}..HEAD` : 'HEAD',
     '--format=%s%x00%b%x00',
   )
 
