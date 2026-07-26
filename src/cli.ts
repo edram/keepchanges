@@ -9,6 +9,7 @@ import process from 'node:process'
 import { cac } from 'cac'
 import { x } from 'tinyexec'
 import { resolveRepository } from './repository'
+import { updateVersion } from './version'
 
 interface Commit extends RepositoryCommit {
   type: string
@@ -28,6 +29,8 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   const cli = cac('changelog')
     .option('--output <path>', 'Changelog file path')
     .option('--dry', 'Print the changelog without writing it')
+    .option('--commit', 'Commit the changelog')
+    .option('--author <author>', 'Commit author in "Name <email>" format')
     .option('--token <token>', 'Repository token for resolving authors')
 
   const parsed = cli.parse(['node', 'changelog', ...args], { run: false })
@@ -125,6 +128,24 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   }
 
   await writeFile(outputPath, changelog)
+  const versionPath = await updateVersion(environment.cwd, version)
+  if (parsed.options.commit) {
+    const releasePaths = [outputPath, versionPath].filter(
+      path => path !== undefined,
+    )
+    await git(environment.cwd, 'add', '--', ...releasePaths)
+    const author = parsed.options.author
+    await git(
+      environment.cwd,
+      'commit',
+      '-m',
+      `chore(release): v${version}`,
+      ...(author ? ['--author', author] : []),
+      '--only',
+      '--',
+      ...releasePaths,
+    )
+  }
 }
 
 async function git(cwd: string, ...args: string[]) {
