@@ -8,6 +8,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import { cac } from 'cac'
 import { x } from 'tinyexec'
+import { version as packageVersion } from '../package.json'
 import { resolveRepository } from './repository'
 import { updateVersion } from './version'
 
@@ -171,6 +172,16 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     prerelease: version.includes('-'),
   }
   const publishRepositoryRelease = async () => {
+    stdout([
+      `gitchangelog v${packageVersion}`,
+      `${from || comparisonFrom} -> ${tag} (${commits.length} commits)`,
+      '--------------',
+      '',
+      releaseBody.replaceAll('&nbsp;', ''),
+      '',
+      '--------------',
+      '',
+    ].join('\n'))
     if (!token || !repository!.provider.publishRelease) {
       const url = repository!.provider.manualReleaseUrl?.(
         repository!,
@@ -178,7 +189,10 @@ export async function runCli(args: string[], environment: CliEnvironment) {
       )
       if (!url)
         throw new Error('A repository token is required to release')
-      stdout(`Create ${repository!.provider.name} release manually:\n${url}\n`)
+      stdout(
+        `No ${repository!.provider.name} token found, specify it via GITHUB_TOKEN env. Release skipped.\n\n`,
+      )
+      stdout(`Using the following link to create it manually:\n${url}\n`)
       return
     }
     const result = await repository!.provider.publishRelease!(
@@ -403,11 +417,12 @@ function renderSection(
       const reference = repository
         ? `[<samp>(${commit.hash.slice(0, 5)})</samp>](${repository.provider.commitUrl(repository, commit.hash)})`
         : ''
-      const authors = commit.authors
-        .map(author => author.login
-          ? `@${author.login}`
-          : `**${escapeHtml(author.name)}**`)
-        .join(', ')
+      const authorNames = commit.authors.map(author => author.login
+        ? `@${author.login}`
+        : `**${escapeHtml(author.name)}**`)
+      const authors = authorNames.length > 1
+        ? `${authorNames.slice(0, -1).join(', ')} and ${authorNames.at(-1)}`
+        : authorNames[0] || ''
       const details = [authors ? `by ${authors}` : '', reference]
         .filter(Boolean)
         .join(' ')

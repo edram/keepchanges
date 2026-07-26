@@ -61,6 +61,11 @@ Publish a repository release:
 GITHUB_TOKEN=github_pat_xxx pnpm dlx gitchangelog 1.1.0 --release
 ```
 
+The token is optional. Before publishing, the command prints the compared refs,
+commit count, and complete release notes. Without a token, it prints a GitHub
+URL with the title, notes, tag, and prerelease fields filled in for manual
+publishing.
+
 When `v1.1.0` does not exist, the working tree must be clean. The command
 updates the release files, creates or reuses a release commit, creates an
 annotated tag, pushes `HEAD` and the tag to `origin`, then creates the provider

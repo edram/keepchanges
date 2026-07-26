@@ -259,7 +259,22 @@ test('provides a prefilled manual release link without a token', async () => {
     },
   )
 
-  expect(output).toContain('Create GitHub release manually:\n')
+  expect(output).toMatch(/^gitchangelog v\d+\.\d+\.\d+\n/)
+  expect(output).toContain('v1.0.0 -> v1.1.0 (2 commits)\n')
+  expect(output).toContain('--------------\n\n### 🚀 Features\n')
+  expect(output).toContain(
+    '- Add CLI - by **Test Author** [<samp>',
+  )
+  expect(output).toContain('\n##### [View changes on GitHub]')
+  expect(output).toContain(
+    [
+      '--------------',
+      'No GitHub token found, specify it via GITHUB_TOKEN env. Release skipped.',
+      '',
+      'Using the following link to create it manually:',
+    ].join('\n'),
+  )
+  expect(output).not.toContain('&nbsp;')
   const url = new URL(output.trim().split('\n').at(-1)!)
   expect(`${url.origin}${url.pathname}`).toBe(
     'https://github.com/example/project/releases/new',
@@ -359,7 +374,8 @@ test('updates an existing GitHub release for the same tag', async () => {
     },
   )
 
-  expect(output).toBe(
+  expect(output).toContain('gitchangelog v')
+  expect(output).toContain(
     'Updated GitHub release: https://github.com/example/project/releases/tag/v1.1.0\n',
   )
   expect(requests).toContainEqual(expect.objectContaining({
@@ -650,7 +666,7 @@ test('renders co-authors as commit participants', async () => {
   await runCli(['1.1.0'], { cwd })
 
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    '- Support pairs &nbsp;-&nbsp; by **Test Author**, **Second Author**',
+    '- Support pairs &nbsp;-&nbsp; by **Test Author** and **Second Author**',
   )
 })
 
