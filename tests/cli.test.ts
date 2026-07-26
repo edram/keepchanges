@@ -34,6 +34,28 @@ test('writes the first release when the repository has no tags', async () => {
   expect(changelog).toContain('- Add CLI')
 })
 
+test('links first-release changes from the initial commit', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:example/project.git',
+  )
+  const firstCommit = (
+    await command(cwd, 'git', 'rev-list', '--max-parents=0', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(['0.0.1'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/example/project/compare/${firstCommit}...v0.0.1)`,
+  )
+})
+
 test('accepts a release version with a v prefix', async () => {
   const cwd = await createRepository()
 
@@ -117,6 +139,96 @@ test('renders a conventional commit scope', async () => {
 
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
     '- **parser**: Handle separators',
+  )
+})
+
+test('links commits using an SSH origin repository', async () => {
+  const cwd = await createRepository()
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:example/project.git',
+  )
+  const hash = (
+    await command(cwd, 'git', 'rev-parse', '--short', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(['1.1.0'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    `- Add CLI &nbsp;-&nbsp; [<samp>(${hash.slice(0, 5)})</samp>](https://github.com/example/project/commit/${hash})`,
+  )
+})
+
+test('prefers the package repository over the Git origin', async () => {
+  const cwd = await createRepository()
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:example/origin.git',
+  )
+  await writeFile(
+    join(cwd, 'package.json'),
+    JSON.stringify({
+      repository: 'git+https://github.com/example/package.git',
+    }),
+  )
+  const hash = (
+    await command(cwd, 'git', 'rev-parse', '--short', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(['1.1.0'], { cwd })
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog).toContain(
+    `https://github.com/example/package/commit/${hash}`,
+  )
+  expect(changelog).not.toContain('https://github.com/example/origin')
+})
+
+test('reads an object-form package repository', async () => {
+  const cwd = await createRepository()
+  await writeFile(
+    join(cwd, 'package.json'),
+    JSON.stringify({
+      repository: {
+        type: 'git',
+        url: 'git+https://github.com/example/project.git',
+      },
+    }),
+  )
+  const hash = (
+    await command(cwd, 'git', 'rev-parse', '--short', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(['1.1.0'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    `https://github.com/example/project/commit/${hash}`,
+  )
+})
+
+test('links changes from the latest tag to the release tag', async () => {
+  const cwd = await createRepository()
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'https://github.com/example/project.git',
+  )
+
+  await runCli(['1.1.0'], { cwd })
+
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
+    '##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/example/project/compare/v1.0.0...v1.1.0)',
   )
 })
 

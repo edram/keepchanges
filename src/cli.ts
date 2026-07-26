@@ -25,16 +25,48 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     ['describe', '--tags', '--abbrev=0'],
     { nodeOptions: { cwd: environment.cwd } },
   )
+  let repositorySource = await readFile(
+    resolve(environment.cwd, 'package.json'),
+    'utf8',
+  ).then((contents) => {
+    const repository = (
+      JSON.parse(contents) as {
+        repository?: string | { url?: string }
+      }
+    ).repository
+    return typeof repository === 'string' ? repository : repository?.url || ''
+  }).catch(() => '')
+
+  if (!repositorySource) {
+    repositorySource = (
+      await x(
+        'git',
+        ['remote', 'get-url', 'origin'],
+        { nodeOptions: { cwd: environment.cwd } },
+      )
+    ).stdout.trim()
+  }
+  const repository = parseRepositoryUrl(repositorySource)
   const from = latestTag.stdout.trim()
+  const comparisonFrom = from || (
+    repository
+      ? (await git(
+          environment.cwd,
+          'rev-list',
+          '--max-parents=0',
+          'HEAD',
+        )).trim()
+      : ''
+  )
   const log = await git(
     environment.cwd,
     'log',
     from ? `${from}..HEAD` : 'HEAD',
-    '--format=%s%x00%b%x00',
+    '--format=%h%x00%s%x00%b%x00',
   )
 
   const commits = parseGitLog(log)
-    .map(commit => parseCommit(commit.subject, commit.body))
+    .map(commit => parseCommit(commit.hash, commit.subject, commit.body))
     .filter(commit => commit !== null)
 
   const release = [
@@ -42,15 +74,24 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     ...renderSection(
       commits.filter(commit => commit.isBreaking),
       '🚨 Breaking Changes',
+      repository,
     ),
     ...renderSection(
       commits.filter(commit => !commit.isBreaking && commit.type === 'feat'),
       '🚀 Features',
+      repository,
     ),
     ...renderSection(
       commits.filter(commit => !commit.isBreaking && commit.type === 'fix'),
       '🐞 Bug Fixes',
+      repository,
     ),
+    ...(repository && comparisonFrom
+      ? [
+          '',
+          `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](${repository}/compare/${comparisonFrom}...v${version})`,
+        ]
+      : []),
     '',
   ].join('\n')
   const outputPath = resolve(
@@ -98,25 +139,35 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, character => htmlEntities[character])
 }
 
+function parseRepositoryUrl(remote: string) {
+  const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(remote)
+  return match ? `https://github.com/${match[1]}` : ''
+}
+
 function parseGitLog(log: string) {
   const fields = log.split('\0')
-  const commits: Array<{ subject: string, body: string }> = []
+  const commits: Array<{ hash: string, subject: string, body: string }> = []
 
-  for (let index = 0; index + 1 < fields.length; index += 2) {
-    const subject = fields[index].trim()
+  for (let index = 0; index + 2 < fields.length; index += 3) {
+    const subject = fields[index + 1].trim()
     if (subject)
-      commits.push({ subject, body: fields[index + 1] })
+      commits.push({
+        hash: fields[index].trim(),
+        subject,
+        body: fields[index + 2],
+      })
   }
 
   return commits
 }
 
-function parseCommit(subject: string, body: string) {
+function parseCommit(hash: string, subject: string, body: string) {
   const match = /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<description>.+)$/i.exec(subject)
   if (!match?.groups)
     return null
 
   return {
+    hash,
     type: match.groups.type.toLowerCase(),
     scope: match.groups.scope || '',
     description: match.groups.description,
@@ -130,14 +181,19 @@ function renderSection(
     type: string
     scope: string
     description: string
+    hash: string
     isBreaking: boolean
   }>,
   title: string,
+  repository: string,
 ) {
   const lines = commits
     .map((commit) => {
       const scope = commit.scope ? `**${escapeHtml(commit.scope)}**: ` : ''
-      return `${scope}${escapeHtml(capitalize(commit.description))}`
+      const reference = repository
+        ? ` &nbsp;-&nbsp; [<samp>(${commit.hash.slice(0, 5)})</samp>](${repository}/commit/${commit.hash})`
+        : ''
+      return `${scope}${escapeHtml(capitalize(commit.description))}${reference}`
     })
     .reverse()
 

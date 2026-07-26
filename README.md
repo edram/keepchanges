@@ -4,14 +4,19 @@ Generate and maintain `CHANGELOG.md` from Conventional Commits.
 
 ## Usage
 
-Run the CLI in a Git repository with at least one tag:
+Run the CLI in a Git repository:
 
 ```bash
 pnpm dlx gitchangelog 1.1.0
 ```
 
-This reads commits between the latest tag and `HEAD`, then writes the new
-release before existing release history in `CHANGELOG.md`.
+This reads commits between the latest tag and `HEAD`, or the complete history
+for a first release, then writes the new release before existing release
+history in `CHANGELOG.md`.
+
+Repository links are inferred from `package.json#repository`, then from the
+Git `origin`. When a GitHub repository is found, each entry links to its commit
+and the release includes a comparison link to the requested version tag.
 
 Use a different output file:
 
