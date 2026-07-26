@@ -34,6 +34,19 @@ export async function createBareRepository(prefix = 'changelog-remote-') {
   return cwd
 }
 
+export async function addPackage(cwd: string, repository?: string) {
+  await writeFile(
+    join(cwd, 'package.json'),
+    `${JSON.stringify({
+      name: 'test-package',
+      version: '1.0.0',
+      ...(repository ? { repository } : {}),
+    }, null, 2)}\n`,
+  )
+  await command(cwd, 'git', 'add', 'package.json')
+  await command(cwd, 'git', 'commit', '-m', 'chore: add package')
+}
+
 export async function commit(cwd: string, message: string, body?: string) {
   await writeFile(join(cwd, 'file.txt'), message)
   await command(cwd, 'git', 'add', 'file.txt')
