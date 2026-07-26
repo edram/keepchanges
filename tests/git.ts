@@ -22,6 +22,18 @@ export async function createRepository(prefix = 'changelog-') {
   return cwd
 }
 
+export async function createBareRepository(prefix = 'changelog-remote-') {
+  let cwd: string | undefined
+  onTestFinished(async () => {
+    if (cwd)
+      await rm(cwd, { recursive: true, force: true })
+  })
+
+  cwd = await mkdtemp(join(tmpdir(), prefix))
+  await command(cwd, 'git', 'init', '--bare')
+  return cwd
+}
+
 export async function commit(cwd: string, message: string, body?: string) {
   await writeFile(join(cwd, 'file.txt'), message)
   await command(cwd, 'git', 'add', 'file.txt')

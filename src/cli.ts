@@ -30,6 +30,7 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     .option('--output <path>', 'Changelog file path')
     .option('--dry', 'Print the changelog without writing it')
     .option('--commit', 'Commit the changelog')
+    .option('--release', 'Publish a repository release')
     .option('--author <author>', 'Commit author in "Name <email>" format')
     .option('--token <token>', 'Repository token for resolving authors')
 
@@ -38,7 +39,9 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   if (!versionArgument)
     throw new Error('A release version is required')
   const version = versionArgument.replace(/^v/, '')
+  const tag = `v${version}`
   const env = environment.env ?? process.env
+  const stdout = environment.stdout ?? (value => process.stdout.write(value))
 
   const latestTag = await x(
     'git',
@@ -47,21 +50,69 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   )
   const repository = await resolveRepository(environment.cwd)
   const token = repository?.provider.token(parsed.options.token, env)
-  const from = latestTag.stdout.trim()
+  if (parsed.options.release) {
+    if (!repository)
+      throw new Error('A supported repository is required to release')
+    if (!parsed.options.dry && !token)
+      throw new Error('A repository token is required to release')
+    if (!repository.provider.publishRelease)
+      throw new Error(`${repository.provider.name} does not support releases`)
+  }
+  let taggedCommit = parsed.options.release
+    ? await getTagCommit(environment.cwd, tag)
+    : undefined
+  let releaseRef = taggedCommit ? tag : undefined
+  const remoteTaggedCommit = parsed.options.release
+    ? await getRemoteTagCommit(environment.cwd, tag)
+    : undefined
+  if (
+    taggedCommit
+    && remoteTaggedCommit
+    && taggedCommit !== remoteTaggedCommit
+  ) {
+    throw new Error(`Tag ${tag} differs between local and origin`)
+  }
+  if (remoteTaggedCommit && !taggedCommit) {
+    if (parsed.options.dry) {
+      taggedCommit = remoteTaggedCommit
+      releaseRef = remoteTaggedCommit
+    }
+    else {
+      await git(
+        environment.cwd,
+        'fetch',
+        'origin',
+        `refs/tags/${tag}:refs/tags/${tag}`,
+      )
+      taggedCommit = await getTagCommit(environment.cwd, tag)
+      releaseRef = tag
+    }
+  }
+  if (
+    parsed.options.release
+    && !taggedCommit
+    && (await git(environment.cwd, 'status', '--porcelain')).trim()
+  ) {
+    throw new Error(`Working tree must be clean to create tag ${tag}`)
+  }
+  const from = taggedCommit
+    ? await getPreviousTag(environment.cwd, tag, releaseRef!)
+    : latestTag.stdout.trim()
+  const to = releaseRef || 'HEAD'
   const comparisonFrom = from || (
     repository
       ? (await git(
           environment.cwd,
           'rev-list',
           '--max-parents=0',
-          'HEAD',
+          to,
         )).trim()
       : ''
   )
   const log = await git(
     environment.cwd,
     'log',
-    from ? `${from}..HEAD` : 'HEAD',
+    from ? `${from}..${to}` : to,
     '--format=%h%x00%an%x00%ae%x00%s%x00%b%x00',
   )
 
@@ -74,7 +125,11 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     ))
     .filter(commit => commit !== null)
 
-  if (token && repository) {
+  if (
+    token
+    && repository
+    && !(parsed.options.release && parsed.options.dry)
+  ) {
     await repository.provider.resolveAuthors?.(
       commits,
       repository,
@@ -83,8 +138,7 @@ export async function runCli(args: string[], environment: CliEnvironment) {
     )
   }
 
-  const release = [
-    `## v${version}`,
+  const releaseBody = [
     ...renderSection(
       commits.filter(commit => commit.isBreaking),
       '🚨 Breaking Changes',
@@ -106,8 +160,25 @@ export async function runCli(args: string[], environment: CliEnvironment) {
           `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on ${repository.provider.name}](${repository.provider.compareUrl(repository, comparisonFrom, `v${version}`)})`,
         ]
       : []),
-    '',
-  ].join('\n')
+  ].join('\n').trim()
+  const release = [`## v${version}`, '', releaseBody, ''].join('\n')
+  const repositoryRelease = {
+    tag,
+    name: tag,
+    body: releaseBody,
+    prerelease: version.includes('-'),
+  }
+  const publishRepositoryRelease = async () => {
+    const result = await repository!.provider.publishRelease!(
+      repository!,
+      repositoryRelease,
+      token!,
+      environment.fetch ?? globalThis.fetch,
+    )
+    stdout(
+      `${capitalize(result.action)} ${repository!.provider.name} release: ${result.url}\n`,
+    )
+  }
   const outputPath = resolve(
     environment.cwd,
     parsed.options.output || 'CHANGELOG.md',
@@ -122,30 +193,106 @@ export async function runCli(args: string[], environment: CliEnvironment) {
   const changelog = insertRelease(currentChangelog, release)
 
   if (parsed.options.dry) {
-    const stdout = environment.stdout ?? (value => process.stdout.write(value))
     stdout(changelog)
+    return
+  }
+
+  if (parsed.options.release && taggedCommit) {
+    if (!remoteTaggedCommit) {
+      await git(
+        environment.cwd,
+        'push',
+        'origin',
+        `refs/tags/${tag}`,
+      )
+    }
+    await publishRepositoryRelease()
     return
   }
 
   await writeFile(outputPath, changelog)
   const versionPath = await updateVersion(environment.cwd, version)
-  if (parsed.options.commit) {
+  if (parsed.options.commit || parsed.options.release) {
     const releasePaths = [outputPath, versionPath].filter(
       path => path !== undefined,
     )
-    await git(environment.cwd, 'add', '--', ...releasePaths)
-    const author = parsed.options.author
-    await git(
+    const changes = await git(
       environment.cwd,
-      'commit',
-      '-m',
-      `chore(release): v${version}`,
-      ...(author ? ['--author', author] : []),
-      '--only',
+      'status',
+      '--porcelain',
       '--',
       ...releasePaths,
     )
+    if (changes.trim()) {
+      await git(environment.cwd, 'add', '--', ...releasePaths)
+      const author = parsed.options.author
+      await git(
+        environment.cwd,
+        'commit',
+        '-m',
+        `chore(release): v${version}`,
+        ...(author ? ['--author', author] : []),
+        '--only',
+        '--',
+        ...releasePaths,
+      )
+    }
   }
+  if (parsed.options.release) {
+    await git(environment.cwd, 'tag', '-a', tag, '-m', tag)
+    await git(
+      environment.cwd,
+      'push',
+      'origin',
+      'HEAD',
+      `refs/tags/${tag}`,
+    )
+    await publishRepositoryRelease()
+  }
+}
+
+async function getTagCommit(cwd: string, tag: string) {
+  return git(cwd, 'rev-list', '-n', '1', tag)
+    .then(output => output.trim() || undefined)
+    .catch(() => undefined)
+}
+
+async function getPreviousTag(cwd: string, tag: string, releaseRef: string) {
+  if (!tag.includes('-')) {
+    const tags = await git(
+      cwd,
+      'tag',
+      '--merged',
+      releaseRef,
+      '--sort=-version:refname',
+    )
+    const previousStable = tags
+      .trim()
+      .split('\n')
+      .find(candidate =>
+        candidate !== tag && /^v?\d+\.\d+\.\d+$/.test(candidate),
+      )
+    if (previousStable)
+      return previousStable
+  }
+
+  return git(cwd, 'describe', '--tags', '--abbrev=0', `${releaseRef}^`)
+    .then(output => output.trim())
+    .catch(() => '')
+}
+
+async function getRemoteTagCommit(cwd: string, tag: string) {
+  const output = await git(
+    cwd,
+    'ls-remote',
+    '--tags',
+    'origin',
+    `refs/tags/${tag}`,
+    `refs/tags/${tag}^{}`,
+  )
+  const refs = output.trim().split('\n').filter(Boolean)
+  const peeled = refs.find(line => line.endsWith('^{}'))
+  return (peeled || refs[0])?.split(/\s+/)[0]
 }
 
 async function git(cwd: string, ...args: string[]) {

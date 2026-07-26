@@ -2,7 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { runCli } from '../src'
-import { command, commit, createRepository } from './git'
+import {
+  command,
+  commit,
+  createBareRepository,
+  createRepository,
+} from './git'
 
 const expectedChangelog = [
   '# Changelog',
@@ -194,6 +199,354 @@ test('commits only the changelog and preserves other staged changes', async () =
   expect(
     (await command(cwd, 'git', 'diff', '--cached', '--name-only')).stdout.trim(),
   ).toBe('staged.txt')
+})
+
+test('creates and pushes a tag before publishing a GitHub release', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  const requests: GitHubRequest[] = []
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch({ requests }),
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
+  ).toBe('chore(release): v1.1.0')
+  const tagCommit = (
+    await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
+  ).stdout.trim()
+  expect(tagCommit).toBe(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  )
+  expect(
+    (await command(
+      remote,
+      'git',
+      'rev-list',
+      '-n',
+      '1',
+      'refs/tags/v1.1.0',
+    )).stdout.trim(),
+  ).toBe(tagCommit)
+  const publish = requests.find(request => request.method === 'POST')
+  expect(publish?.body).toMatchObject({
+    tag_name: 'v1.1.0',
+    name: 'v1.1.0',
+    prerelease: false,
+  })
+  expect(publish?.body?.body).toContain('### 🚀 Features')
+  expect(publish?.body?.body).not.toContain('## v1.1.0')
+})
+
+test('reuses a release commit created before --release', async () => {
+  const { cwd } = await createReleaseRepository()
+  await runCli(
+    ['1.1.0', '--commit', '--token', 'secret'],
+    { cwd, fetch: githubReleaseFetch() },
+  )
+  const releaseCommit = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch(),
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(releaseCommit)
+  expect(
+    (await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')).stdout.trim(),
+  ).toBe(releaseCommit)
+})
+
+test('publishes an existing tag without moving it or including later commits', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  const tagCommit = (
+    await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
+  ).stdout.trim()
+  await commit(cwd, 'docs: reformat changelog')
+  const head = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+  const requests: GitHubRequest[] = []
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch({ requests }),
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(head)
+  expect(
+    (await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')).stdout.trim(),
+  ).toBe(tagCommit)
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
+    code: 'ENOENT',
+  })
+  const publish = requests.find(request => request.method === 'POST')
+  expect(publish?.body?.body).toContain('Add CLI')
+  expect(publish?.body?.body).not.toContain('Reformat changelog')
+})
+
+test('updates an existing GitHub release for the same tag', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  const requests: Array<{ url: string, method: string }> = []
+  let output = ''
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: value => output += value,
+      fetch: githubReleaseFetch({ existing: true, requests }),
+    },
+  )
+
+  expect(output).toBe(
+    'Updated GitHub release: https://github.com/example/project/releases/tag/v1.1.0\n',
+  )
+  expect(requests).toContainEqual(expect.objectContaining({
+    url: 'https://api.github.com/repos/example/project/releases/42',
+    method: 'PATCH',
+  }))
+  expect(requests.some(request => request.method === 'POST')).toBe(false)
+})
+
+test('pushes an existing local tag before publishing a release', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  const tagCommit = (
+    await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
+  ).stdout.trim()
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch(),
+    },
+  )
+
+  expect(
+    (await command(
+      remote,
+      'git',
+      'rev-list',
+      '-n',
+      '1',
+      'refs/tags/v1.1.0',
+    )).stdout.trim(),
+  ).toBe(tagCommit)
+})
+
+test('fetches an existing remote tag before publishing a release', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  const tagCommit = (
+    await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
+  ).stdout.trim()
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  await command(cwd, 'git', 'tag', '--delete', 'v1.1.0')
+  const head = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch(),
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')).stdout.trim(),
+  ).toBe(tagCommit)
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(head)
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
+    code: 'ENOENT',
+  })
+})
+
+test('rejects conflicting local and remote release tags', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  const remoteTag = (
+    await command(remote, 'git', 'rev-list', '-n', '1', 'refs/tags/v1.1.0')
+  ).stdout.trim()
+  await commit(cwd, 'fix: late change')
+  await command(cwd, 'git', 'tag', '--delete', 'v1.1.0')
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  const localTag = (
+    await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
+  ).stdout.trim()
+  let requested = false
+
+  await expect(runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      fetch: async () => {
+        requested = true
+        return Response.json({})
+      },
+    },
+  )).rejects.toThrow(
+    'Tag v1.1.0 differs between local and origin',
+  )
+
+  expect(requested).toBe(false)
+  expect(
+    (await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')).stdout.trim(),
+  ).toBe(localTag)
+  expect(
+    (await command(remote, 'git', 'rev-list', '-n', '1', 'refs/tags/v1.1.0'))
+      .stdout.trim(),
+  ).toBe(remoteTag)
+})
+
+test('requires a clean working tree before creating a release tag', async () => {
+  const { cwd } = await createReleaseRepository()
+  await writeFile(join(cwd, 'file.txt'), 'uncommitted change')
+  let requested = false
+
+  await expect(runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      fetch: async () => {
+        requested = true
+        return Response.json({})
+      },
+    },
+  )).rejects.toThrow(
+    'Working tree must be clean to create tag v1.1.0',
+  )
+
+  expect(requested).toBe(false)
+  expect(
+    (await command(cwd, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
+  ).toBe('')
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
+    code: 'ENOENT',
+  })
+})
+
+test('previews a release without local or remote mutations with --dry', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  const head = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+  let output = ''
+  let requested = false
+
+  await runCli(
+    ['1.1.0', '--release', '--dry'],
+    {
+      cwd,
+      stdout: value => output += value,
+      fetch: async () => {
+        requested = true
+        return Response.json({ items: [] })
+      },
+    },
+  )
+
+  expect(requested).toBe(false)
+  expect(output).toContain('## v1.1.0')
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(head)
+  expect(
+    (await command(cwd, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
+  ).toBe('')
+  expect(
+    (await command(remote, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
+  ).toBe('')
+  expect(
+    JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')).version,
+  ).toBe('1.0.0')
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
+    code: 'ENOENT',
+  })
+})
+
+test('does not fetch a missing local tag during a release dry run', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  await command(cwd, 'git', 'tag', '--delete', 'v1.1.0')
+
+  await runCli(
+    ['1.1.0', '--release', '--dry', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: async () => {
+        throw new Error('Provider API must not be called during a dry run')
+      },
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
+  ).toBe('')
+})
+
+test('compares a stable release with the previous stable tag', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(
+    cwd,
+    'git',
+    'tag',
+    '-a',
+    'v1.1.0-beta.1',
+    '-m',
+    'v1.1.0-beta.1',
+  )
+  await commit(cwd, 'fix: stabilize release')
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', '--tags')
+  let releaseBody = ''
+
+  await runCli(
+    ['1.1.0', '--release', '--token', 'secret'],
+    {
+      cwd,
+      stdout: () => {},
+      fetch: githubReleaseFetch({
+        onPublish: body => releaseBody = String(body.body),
+      }),
+    },
+  )
+
+  expect(releaseBody).toContain('Add CLI')
+  expect(releaseBody).toContain('Stabilize release')
 })
 
 test('groups fix commits under Bug Fixes', async () => {
@@ -648,11 +1001,65 @@ test('replaces the same release when its existing heading has no v prefix', asyn
   expect(changelog).not.toContain('Stale content')
 })
 
-async function addPackage(cwd: string) {
+async function addPackage(cwd: string, repository?: string) {
   await writeFile(
     join(cwd, 'package.json'),
-    `${JSON.stringify({ name: 'test-package', version: '1.0.0' }, null, 2)}\n`,
+    `${JSON.stringify({
+      name: 'test-package',
+      version: '1.0.0',
+      ...(repository ? { repository } : {}),
+    }, null, 2)}\n`,
   )
   await command(cwd, 'git', 'add', 'package.json')
   await command(cwd, 'git', 'commit', '-m', 'chore: add package')
+}
+
+async function createReleaseRepository() {
+  const cwd = await createRepository()
+  const remote = await createBareRepository()
+  await command(cwd, 'git', 'remote', 'add', 'origin', remote)
+  await addPackage(cwd, 'https://github.com/example/project.git')
+  return { cwd, remote }
+}
+
+interface GitHubRequest {
+  url: string
+  method: string
+  body?: Record<string, unknown>
+}
+
+function githubReleaseFetch(options: {
+  existing?: boolean
+  requests?: GitHubRequest[]
+  onPublish?: (body: Record<string, unknown>) => void
+} = {}) {
+  return async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method || 'GET'
+    const body = typeof init?.body === 'string'
+      ? JSON.parse(init.body)
+      : undefined
+    options.requests?.push({ url, method, body })
+    if (url.includes('/search/users'))
+      return Response.json({ items: [{ login: 'test-author' }] })
+    if (url.endsWith('/releases/tags/v1.1.0')) {
+      if (options.existing) {
+        return Response.json({
+          id: 42,
+          html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+        })
+      }
+      return new Response(null, { status: 404 })
+    }
+    if (
+      (url.endsWith('/releases') && method === 'POST')
+      || (url.endsWith('/releases/42') && method === 'PATCH')
+    ) {
+      options.onPublish?.(body)
+      return Response.json({
+        html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+      })
+    }
+    throw new Error(`Unexpected request: ${method} ${url}`)
+  }
 }

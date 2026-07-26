@@ -55,6 +55,28 @@ pnpm dlx gitchangelog 1.1.0 --commit \
 Only the changelog and detected version file are committed. Other staged
 changes remain staged.
 
+Publish a repository release:
+
+```bash
+GITHUB_TOKEN=github_pat_xxx pnpm dlx gitchangelog 1.1.0 --release
+```
+
+When `v1.1.0` does not exist, the working tree must be clean. The command
+updates the release files, creates or reuses a release commit, creates an
+annotated tag, pushes `HEAD` and the tag to `origin`, then creates the provider
+release.
+
+When the tag already exists locally or on `origin`, it remains immutable. The
+command generates notes from the previous release tag to `v1.1.0`, pushes a
+missing remote tag when necessary, then creates or updates the existing
+provider release. A local and remote tag with different targets causes the
+release to stop without force-pushing.
+
+Stable releases compare with the previous stable tag, while prereleases compare
+with the nearest previous tag. Use `--release --dry` without a token to preview
+without writing files, resolving remote authors, committing, tagging, pushing,
+or calling the provider API.
+
 The current release recognizes `feat` and `fix` commits, optional scopes,
 breaking-change exclamation marks, and `BREAKING CHANGE` or
 `BREAKING-CHANGE` trailers. Other commit types are ignored.

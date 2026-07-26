@@ -15,6 +15,18 @@ export interface Repository {
   webUrl: string
 }
 
+export interface RepositoryRelease {
+  tag: string
+  name: string
+  body: string
+  prerelease: boolean
+}
+
+export interface RepositoryReleaseResult {
+  url: string
+  action: 'created' | 'updated'
+}
+
 export interface RepositoryProvider {
   name: string
   parse(source: string): Repository | undefined
@@ -27,4 +39,10 @@ export interface RepositoryProvider {
     token: string,
     fetch: typeof globalThis.fetch,
   ) => Promise<void>
+  publishRelease?: (
+    repository: Repository,
+    release: RepositoryRelease,
+    token: string,
+    fetch: typeof globalThis.fetch,
+  ) => Promise<RepositoryReleaseResult>
 }

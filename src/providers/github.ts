@@ -72,4 +72,49 @@ export const githubProvider: RepositoryProvider = {
         author.login = authorsByEmail.get(author.email)?.login
     }
   },
+
+  async publishRelease(repository, release, token, fetch) {
+    const headers = {
+      accept: 'application/vnd.github+json',
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    }
+    const releasesUrl
+      = `https://api.github.com/repos/${repository.path}/releases`
+    const existing = await fetch(
+      `${releasesUrl}/tags/${encodeURIComponent(release.tag)}`,
+      { headers },
+    )
+    let url = releasesUrl
+    let method = 'POST'
+    let action: 'created' | 'updated' = 'created'
+    if (existing.ok) {
+      const data = await existing.json() as { id: number }
+      url = `${releasesUrl}/${data.id}`
+      method = 'PATCH'
+      action = 'updated'
+    }
+    else if (existing.status !== 404) {
+      throw new Error(`GitHub release lookup failed (${existing.status})`)
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: JSON.stringify({
+        tag_name: release.tag,
+        name: release.name,
+        body: release.body,
+        prerelease: release.prerelease,
+      }),
+    })
+    if (!response.ok)
+      throw new Error(`GitHub release publishing failed (${response.status})`)
+
+    const data = await response.json() as { html_url: string }
+    return {
+      url: data.html_url,
+      action,
+    }
+  },
 }
