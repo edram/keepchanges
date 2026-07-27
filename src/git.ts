@@ -8,6 +8,7 @@ export interface Commit extends RepositoryCommit {
   type: string
   scope: string
   description: string
+  pullRequests: string[]
   isBreaking: boolean
 }
 
@@ -135,6 +136,13 @@ export function parseCommit(
   if (!match?.groups)
     return null
 
+  const pullRequestPattern = /\([ a-z]*(#\d+)\s*\)/gi
+  const pullRequests = [
+    ...new Set(
+      [...match.groups.description.matchAll(pullRequestPattern)]
+        .map(reference => reference[1]),
+    ),
+  ]
   const authors = [author]
   for (const coAuthor of body.matchAll(
     /^Co-Authored-By:\s*(.+?)\s*<([^>]+)>$/gim,
@@ -155,7 +163,8 @@ export function parseCommit(
     ),
     type: match.groups.type.toLowerCase(),
     scope: match.groups.scope || '',
-    description: match.groups.description,
+    description: match.groups.description.replace(pullRequestPattern, '').trim(),
+    pullRequests,
     isBreaking: Boolean(match.groups.breaking)
       || /^BREAKING(?: |-)CHANGE:/im.test(body),
   }

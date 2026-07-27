@@ -106,7 +106,16 @@ function renderSection(
       const authors = authorNames.length > 1
         ? `${authorNames.slice(0, -1).join(', ')} and ${authorNames.at(-1)}`
         : authorNames[0] || ''
-      const details = [authors ? `by ${authors}` : '', reference]
+      const pullRequests = commit.pullRequests.map(pullRequest =>
+        repository
+          ? `[${pullRequest}](${repository.provider.pullRequestUrl(repository, pullRequest)})`
+          : pullRequest,
+      ).join(', ')
+      const details = [
+        authors ? `by ${authors}` : '',
+        pullRequests ? `in ${pullRequests}` : '',
+        reference,
+      ]
         .filter(Boolean)
         .join(' ')
       const suffix = details ? ` &nbsp;-&nbsp; ${details}` : ''

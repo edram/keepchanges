@@ -14,6 +14,7 @@ function commit(overrides: Partial<Commit> = {}): Commit {
     type: 'feat',
     scope: '',
     description: 'add CLI',
+    pullRequests: [],
     isBreaking: false,
     ...overrides,
   }
@@ -90,11 +91,14 @@ describe('createChangelog', () => {
     )!
     const { body } = createChangelog(
       '1.1.0',
-      [commit()],
+      [commit({ pullRequests: ['#123'] })],
       repository,
       'v1.0.0',
     )
 
+    expect(body).toContain(
+      'by **Test Author** in [#123](https://github.com/example/project/pull/123) [<samp>(12345)</samp>]',
+    )
     expect(body).toContain(
       '[<samp>(12345)</samp>](https://github.com/example/project/commit/1234567)',
     )

@@ -23,6 +23,10 @@ export const githubProvider: RepositoryProvider = {
     return `${repository.webUrl}/commit/${hash}`
   },
 
+  pullRequestUrl(repository, reference) {
+    return `${repository.webUrl}/pull/${reference.replace(/^#/, '')}`
+  },
+
   compareUrl(repository, from, to) {
     return `${repository.webUrl}/compare/${from}...${to}`
   },

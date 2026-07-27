@@ -32,6 +32,7 @@ export interface RepositoryProvider {
   parse(source: string): Repository | undefined
   token(explicit: string | undefined, env: NodeJS.ProcessEnv): string | undefined
   commitUrl(repository: Repository, hash: string): string
+  pullRequestUrl(repository: Repository, reference: string): string
   compareUrl(repository: Repository, from: string, to: string): string
   resolveAuthors?: (
     commits: RepositoryCommit[],
