@@ -98,7 +98,20 @@ npx keepchanges 1.1.0 --release --dry
 ### 生成和发布行为
 
 仓库地址优先读取 `package.json#repository`，不存在时读取 Git 的 `origin`。
-当前支持 GitHub。识别到仓库后，每条记录会包含 commit 链接，末尾会包含版本对比链接。
+GitHub 地址会被自动识别。自托管 Gitea 需要在 `package.json` 中显式声明：
+
+```json
+{
+  "repository": {
+    "type": "git",
+    "provider": "gitea",
+    "url": "http://10.102.248.21/edram/keepchanges.git"
+  }
+}
+```
+
+识别到仓库后，每条记录会包含 commit 和 PR 链接，末尾会包含版本对比链接。
+GitHub 支持作者解析和 Release 发布；Gitea 当前仅支持 changelog 链接。
 
 默认使用 Git 提交中的作者名，并将 `Co-Authored-By` 参与者一起写入记录，bot
 账号会被忽略。提供 token 后，会通过 GitHub 尝试将邮箱解析为用户名。
@@ -223,9 +236,23 @@ npx keepchanges 1.1.0 --release --dry
 ### Generation and release behavior
 
 The repository URL is read from `package.json#repository`, then from the Git
-`origin`. GitHub is currently supported. When a repository is detected, each
-entry includes a commit link and the release ends with a version comparison
-link.
+`origin`. GitHub URLs are detected automatically. A self-hosted Gitea repository
+must be declared explicitly in `package.json`:
+
+```json
+{
+  "repository": {
+    "type": "git",
+    "provider": "gitea",
+    "url": "http://10.102.248.21/edram/keepchanges.git"
+  }
+}
+```
+
+When a repository is detected, entries include commit and pull request links,
+and the release ends with a version comparison link. GitHub supports author
+resolution and Release publishing; Gitea currently supports changelog links
+only.
 
 Entries use Git author names by default and include `Co-Authored-By`
 participants. Bot accounts are omitted. With a token, the CLI asks GitHub to
