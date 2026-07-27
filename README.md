@@ -21,6 +21,8 @@ Generate and maintain `CHANGELOG.md` from Conventional Commits.
 
 ### 快速开始
 
+需要 Node.js 20.19.0 或更高版本。
+
 在 Git 仓库根目录运行，并传入要发布的版本号：
 
 ```bash
@@ -142,6 +144,8 @@ and commits with a `BREAKING CHANGE` or `BREAKING-CHANGE` trailer. Other commit
 types are ignored.
 
 ### Quick start
+
+Node.js 20.19.0 or later is required.
 
 Run the CLI at the root of a Git repository and provide the version to release:
 
