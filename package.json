@@ -1,7 +1,7 @@
 {
   "name": "keepchanges",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Generate and maintain CHANGELOG.md from Conventional Commits.",
   "author": "edram",
   "license": "MIT",
