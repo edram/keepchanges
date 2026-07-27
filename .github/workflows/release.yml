@@ -42,7 +42,7 @@ jobs:
         run: pnpm run build
 
       - name: Create release
-        run: node dist/cli.mjs "$RELEASE_VERSION" --release
+        run: node dist/cli.mjs "$RELEASE_VERSION" --release --author "edrambot <bot@edram.dev>"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ inputs.version }}
