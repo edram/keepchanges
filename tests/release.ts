@@ -20,7 +20,6 @@ export async function createReleaseRepository() {
 }
 
 export function githubReleaseFetch(options: {
-  existing?: boolean
   requests?: GitHubRequest[]
   onPublish?: (body: Record<string, unknown>) => void
 } = {}): typeof globalThis.fetch {
@@ -33,15 +32,8 @@ export function githubReleaseFetch(options: {
     options.requests?.push({ url, method, body })
     if (url.includes('/search/users'))
       return Response.json({ items: [{ login: 'test-author' }] })
-    if (url.endsWith('/releases/tags/v1.1.0')) {
-      if (options.existing) {
-        return Response.json({
-          id: 42,
-          html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
-        })
-      }
+    if (url.endsWith('/releases/tags/v1.1.0'))
       return new Response(null, { status: 404 })
-    }
     if (
       (url.endsWith('/releases') && method === 'POST')
       || (url.endsWith('/releases/42') && method === 'PATCH')

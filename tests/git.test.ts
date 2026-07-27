@@ -1,114 +1,94 @@
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { expect, test } from 'vitest'
-import { runCli } from '../src/cli'
-import { command, commit, createRepository } from './git'
+import type { RepositoryAuthor } from '../src/provider'
+import { describe, expect, test } from 'vitest'
+import { parseCommit, readCommits } from '../src/git'
+import { createRepository } from './git'
 
-test('renders the Git author for each commit', async () => {
-  const cwd = await createRepository()
+const author: RepositoryAuthor = {
+  name: 'Test Author',
+  email: 'author@example.com',
+}
 
-  await runCli(['1.1.0'], { cwd })
+describe('parseCommit', () => {
+  test('parses a conventional commit', () => {
+    expect(parseCommit(
+      '1234567',
+      'feat(parser): handle separators',
+      '',
+      author,
+    )).toEqual({
+      hash: '1234567',
+      authors: [author],
+      type: 'feat',
+      scope: 'parser',
+      description: 'handle separators',
+      isBreaking: false,
+    })
+  })
 
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    '- Add CLI &nbsp;-&nbsp; by **Test Author**',
-  )
-})
+  test('ignores a non-conventional commit', () => {
+    expect(parseCommit('1234567', 'Update readme', '', author)).toBeNull()
+  })
 
-test('renders co-authors as commit participants', async () => {
-  const cwd = await createRepository()
-  await commit(
-    cwd,
-    'fix: support pairs',
-    'Co-Authored-By: Second Author <second@example.com>',
-  )
-
-  await runCli(['1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    '- Support pairs &nbsp;-&nbsp; by **Test Author** and **Second Author**',
-  )
-})
-
-test('excludes bot commit participants', async () => {
-  const cwd = await createRepository()
-  await commit(
-    cwd,
-    'fix: update dependencies',
+  test.each([
+    ['feat!: remove the legacy API', ''],
     [
-      'Co-Authored-By: automation[bot] <automation@example.com>',
-      'Co-Authored-By: Dependabot <dependabot@example.com>',
-      'Co-Authored-By: Release (bot) <release@example.com>',
-    ].join('\n'),
-  )
+      'fix: change the configuration format',
+      'BREAKING-CHANGE: configuration files must be migrated',
+    ],
+    [
+      'fix: change the plugin API',
+      'BREAKING CHANGE: plugins must export a factory',
+    ],
+  ])('recognizes a breaking change in %s', (subject, body) => {
+    expect(parseCommit('1234567', subject, body, author)?.isBreaking).toBe(true)
+  })
 
-  await runCli(['1.1.0'], { cwd })
+  test('collects unique co-authors', () => {
+    const result = parseCommit(
+      '1234567',
+      'fix: support pairs',
+      [
+        'Co-Authored-By: Second Author <second@example.com>',
+        'Co-Authored-By: Duplicate <author@example.com>',
+      ].join('\n'),
+      author,
+    )
 
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain(
-    '- Update dependencies &nbsp;-&nbsp; by **Test Author**',
-  )
-  expect(changelog).not.toMatch(/\[bot\]|dependabot|\(bot\)/i)
+    expect(result?.authors).toEqual([
+      author,
+      { name: 'Second Author', email: 'second@example.com' },
+    ])
+  })
+
+  test('excludes bot participants', () => {
+    const result = parseCommit(
+      '1234567',
+      'fix: update dependencies',
+      [
+        'Co-Authored-By: automation[bot] <automation@example.com>',
+        'Co-Authored-By: Dependabot <dependabot@example.com>',
+        'Co-Authored-By: Release (bot) <release@example.com>',
+      ].join('\n'),
+      author,
+    )
+
+    expect(result?.authors).toEqual([author])
+  })
 })
 
-test('omits empty author details for bot-authored commits', async () => {
+test('reads conventional commits from a Git range', async () => {
   const cwd = await createRepository()
-  await command(cwd, 'git', 'config', 'user.name', 'automation[bot]')
-  await command(cwd, 'git', 'config', 'user.email', 'bot@example.com')
-  await commit(cwd, 'fix: automated update')
 
-  await runCli(['1.1.0'], { cwd })
+  const commits = await readCommits(cwd, 'v1.0.0', 'HEAD')
 
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain('\n- Automated update\n')
-  expect(changelog).not.toContain('by **automation[bot]**')
-})
-
-test('renders an exclamation-mark commit only under Breaking Changes', async () => {
-  const cwd = await createRepository()
-  await commit(cwd, 'feat!: remove the legacy API')
-
-  await runCli(['2.0.0'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain([
-    '### 🚨 Breaking Changes',
-    '',
-    '- Remove the legacy API',
-  ].join('\n'))
-  expect(changelog.match(/Remove the legacy API/g)).toHaveLength(1)
-})
-
-test('recognizes a BREAKING-CHANGE trailer', async () => {
-  const cwd = await createRepository()
-  await commit(
-    cwd,
-    'fix: change the configuration format',
-    'BREAKING-CHANGE: configuration files must be migrated',
-  )
-
-  await runCli(['2.0.0'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain([
-    '### 🚨 Breaking Changes',
-    '',
-    '- Change the configuration format',
-  ].join('\n'))
-})
-
-test('recognizes a BREAKING CHANGE trailer', async () => {
-  const cwd = await createRepository()
-  await commit(
-    cwd,
-    'fix: change the plugin API',
-    'BREAKING CHANGE: plugins must export a factory',
-  )
-
-  await runCli(['2.0.0'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain('- Change the plugin API')
-  expect(changelog.indexOf('Change the plugin API')).toBeLessThan(
-    changelog.indexOf('### 🚀 Features'),
-  )
+  expect(commits).toEqual([
+    {
+      hash: expect.stringMatching(/^[0-9a-f]{7}$/),
+      authors: [author],
+      type: 'feat',
+      scope: '',
+      description: 'add CLI',
+      isBreaking: false,
+    },
+  ])
 })

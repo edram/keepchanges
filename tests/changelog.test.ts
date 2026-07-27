@@ -1,50 +1,51 @@
-import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { expect, test } from 'vitest'
-import { runCli } from '../src/cli'
-import { command, commit, createRepository } from './git'
+import type { Commit } from '../src/git'
+import { describe, expect, test } from 'vitest'
+import {
+  createChangelog,
+  hasRelease,
+  insertRelease,
+} from '../src/changelog'
+import { githubProvider } from '../src/providers/github'
 
-const expectedChangelog = [
-  '# Changelog',
-  '',
-  '## v1.1.0',
-  '',
-  '### 🚀 Features',
-  '',
-  '- Add CLI &nbsp;-&nbsp; by **Test Author**',
-  '',
-].join('\n')
+function commit(overrides: Partial<Commit> = {}): Commit {
+  return {
+    hash: '1234567',
+    authors: [{ name: 'Test Author', email: 'author@example.com' }],
+    type: 'feat',
+    scope: '',
+    description: 'add CLI',
+    isBreaking: false,
+    ...overrides,
+  }
+}
 
-test('writes changes since the latest tag to CHANGELOG.md', async () => {
-  const cwd = await createRepository()
-
-  await runCli(['1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toBe(expectedChangelog)
-})
-
-test('writes the first release when the repository has no tags', async () => {
-  const cwd = await createRepository()
-  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
-
-  await runCli(['0.0.1'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain('## v0.0.1')
-  expect(changelog).toContain('- Add CLI')
-})
-
-test('groups fix commits under Bug Fixes', async () => {
-  const cwd = await createRepository()
-  await commit(cwd, 'fix: handle invalid input')
-
-  await runCli(['1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toBe(
-    [
-      '# Changelog',
+describe('createChangelog', () => {
+  test('groups conventional commits by release section', () => {
+    const { release } = createChangelog(
+      '2.0.0',
+      [
+        commit(),
+        commit({
+          hash: '2345678',
+          type: 'fix',
+          description: 'handle invalid input',
+        }),
+        commit({
+          hash: '3456789',
+          description: 'remove the legacy API',
+          isBreaking: true,
+        }),
+      ],
+      undefined,
       '',
-      '## v1.1.0',
+    )
+
+    expect(release).toBe([
+      '## v2.0.0',
+      '',
+      '### 🚨 Breaking Changes',
+      '',
+      '- Remove the legacy API &nbsp;-&nbsp; by **Test Author**',
       '',
       '### 🚀 Features',
       '',
@@ -54,138 +55,124 @@ test('groups fix commits under Bug Fixes', async () => {
       '',
       '- Handle invalid input &nbsp;-&nbsp; by **Test Author**',
       '',
-    ].join('\n'),
-  )
+    ].join('\n'))
+  })
+
+  test('renders scopes, participants, and HTML safely', () => {
+    const { body } = createChangelog(
+      '1.1.0',
+      [
+        commit({
+          scope: 'ui<button>',
+          description: 'support generic<T> & "quoted" \'single\' APIs',
+          authors: [
+            { name: 'Test & Author', email: 'author@example.com' },
+            {
+              name: 'Ignored Name',
+              email: 'second@example.com',
+              login: 'second-author',
+            },
+          ],
+        }),
+      ],
+      undefined,
+      '',
+    )
+
+    expect(body).toContain(
+      '- **ui&lt;button&gt;**: Support generic&lt;T&gt; &amp; &quot;quoted&quot; &#39;single&#39; APIs &nbsp;-&nbsp; by **Test &amp; Author** and @second-author',
+    )
+  })
+
+  test('links commits and the comparison when a repository is available', () => {
+    const repository = githubProvider.parse(
+      'git@github.com:example/project.git',
+    )!
+    const { body } = createChangelog(
+      '1.1.0',
+      [commit()],
+      repository,
+      'v1.0.0',
+    )
+
+    expect(body).toContain(
+      '[<samp>(12345)</samp>](https://github.com/example/project/commit/1234567)',
+    )
+    expect(body).toContain(
+      '[View changes on GitHub](https://github.com/example/project/compare/v1.0.0...v1.1.0)',
+    )
+  })
 })
 
-test('renders a conventional commit scope', async () => {
-  const cwd = await createRepository()
-  await commit(cwd, 'fix(parser): handle separators')
+describe('insertRelease', () => {
+  const release = '## v1.1.0\n\n- Current release\n'
 
-  await runCli(['1.1.0'], { cwd })
+  test('appends the first release after the changelog preamble', () => {
+    expect(insertRelease('# Changelog\n', release)).toBe(
+      '# Changelog\n\n## v1.1.0\n\n- Current release\n',
+    )
+  })
 
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    '- **parser**: Handle separators',
-  )
-})
+  test('inserts a release before existing history', () => {
+    const changelog = [
+      '# Changelog',
+      '',
+      'Project release history.',
+      '',
+      '## v1.0.0',
+      '',
+      '- Initial release',
+      '',
+    ].join('\n')
 
-test('escapes HTML characters in commit scopes and descriptions', async () => {
-  const cwd = await createRepository()
-  await commit(cwd, 'feat(ui<button>): support generic<T> & "quoted" \'single\' APIs')
-
-  await runCli(['1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toContain(
-    '- **ui&lt;button&gt;**: Support generic&lt;T&gt; &amp; &quot;quoted&quot; &#39;single&#39; APIs',
-  )
-})
-
-test('inserts a release before existing changelog history', async () => {
-  const cwd = await createRepository()
-  const existingChangelog = [
-    '# Changelog',
-    '',
-    'Project release history.',
-    '',
-    '## v1.0.0',
-    '',
-    '- Initial release',
-    '',
-  ].join('\n')
-  await writeFile(join(cwd, 'CHANGELOG.md'), existingChangelog)
-
-  await runCli(['1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toBe(
-    [
+    expect(insertRelease(changelog, release)).toBe([
       '# Changelog',
       '',
       'Project release history.',
       '',
       '## v1.1.0',
       '',
-      '### 🚀 Features',
-      '',
-      '- Add CLI &nbsp;-&nbsp; by **Test Author**',
+      '- Current release',
       '',
       '## v1.0.0',
       '',
       '- Initial release',
       '',
-    ].join('\n'),
-  )
-})
+    ].join('\n'))
+  })
 
-test('replaces an existing release with the same version', async () => {
-  const cwd = await createRepository()
-  await writeFile(
-    join(cwd, 'CHANGELOG.md'),
-    [
-      '# Changelog',
-      '',
-      '## v1.1.0',
-      '',
-      '- Stale content',
-      '',
-      '## v1.0.0',
-      '',
-      '- Initial release',
-      '',
-    ].join('\n'),
-  )
-
-  await runCli(['1.1.0'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog.match(/^## v1\.1\.0$/gm)).toHaveLength(1)
-  expect(changelog).not.toContain('Stale content')
-  expect(changelog).toContain('## v1.0.0')
-})
-
-test('replaces the same release when its existing heading has no v prefix', async () => {
-  const cwd = await createRepository()
-  await writeFile(
-    join(cwd, 'CHANGELOG.md'),
-    [
+  test('replaces the same normalized release version', () => {
+    const changelog = [
       '# Changelog',
       '',
       '## 1.1.0',
       '',
-      '- Stale content',
+      '- Stale release',
       '',
       '## v1.0.0',
       '',
       '- Initial release',
       '',
-    ].join('\n'),
-  )
+    ].join('\n')
 
-  await runCli(['1.1.0'], { cwd })
+    const result = insertRelease(changelog, release)
 
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog.match(/^## v?1\.1\.0$/gm)).toHaveLength(1)
-  expect(changelog).toContain('## v1.1.0')
-  expect(changelog).not.toContain('Stale content')
+    expect(result.match(/^## v?1\.1\.0$/gm)).toHaveLength(1)
+    expect(result).not.toContain('Stale release')
+    expect(result).toContain('## v1.0.0')
+  })
+
+  test('keeps prerelease and stable versions distinct', () => {
+    const changelog = '# Changelog\n\n## v1.1.0-beta.1\n\n- Beta release\n'
+
+    const result = insertRelease(changelog, release)
+
+    expect(result).toContain('## v1.1.0\n')
+    expect(result).toContain('## v1.1.0-beta.1\n')
+  })
 })
 
-test('keeps prerelease and stable release headings distinct', async () => {
-  const cwd = await createRepository()
-  await writeFile(
-    join(cwd, 'CHANGELOG.md'),
-    [
-      '# Changelog',
-      '',
-      '## v1.1.0-beta.1',
-      '',
-      '- Beta release',
-      '',
-    ].join('\n'),
-  )
-
-  await runCli(['1.1.0'], { cwd })
-
-  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
-  expect(changelog).toContain('## v1.1.0\n')
-  expect(changelog).toContain('## v1.1.0-beta.1\n')
-  expect(changelog).toContain('- Beta release')
+test('recognizes release headings with or without a v prefix', () => {
+  expect(hasRelease('# Changelog\n\n## 1.1.0\n', 'v1.1.0')).toBe(true)
+  expect(hasRelease('# Changelog\n\n## v1.1.0-beta.1\n', '1.1.0')).toBe(false)
 })

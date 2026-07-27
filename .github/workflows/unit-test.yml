@@ -40,7 +40,6 @@ jobs:
           - ubuntu-latest
           - windows-latest
         node-version:
-          - 20.19.0
           - 22
           - 24
           - 26

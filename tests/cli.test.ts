@@ -1,66 +1,52 @@
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { runCli } from '../src/cli'
-import { createRepository } from './git'
 
-const expectedChangelog = [
-  '# Changelog',
-  '',
-  '## v1.1.0',
-  '',
-  '### 🚀 Features',
-  '',
-  '- Add CLI &nbsp;-&nbsp; by **Test Author**',
-  '',
-].join('\n')
+const { runChangelog } = vi.hoisted(() => ({
+  runChangelog: vi.fn(),
+}))
 
-test('accepts a release version with a v prefix', async () => {
-  const cwd = await createRepository()
+vi.mock('../src/run', () => ({ runChangelog }))
 
-  await runCli(['v1.1.0'], { cwd })
-
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).resolves.toBe(expectedChangelog)
+beforeEach(() => {
+  runChangelog.mockReset()
+  runChangelog.mockResolvedValue(undefined)
 })
 
-test('requires a release version without writing a changelog', async () => {
-  const cwd = await createRepository()
-
-  await expect(runCli([], { cwd })).rejects.toThrow(
-    'A release version is required',
-  )
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
-    code: 'ENOENT',
-  })
-})
-test('writes to the path provided with --output', async () => {
-  const cwd = await createRepository()
-
+test('maps CLI arguments to changelog options', async () => {
   await runCli(
-    ['1.1.0', '--output', 'notes.md'],
-    { cwd },
+    [
+      'v1.1.0',
+      '--output',
+      'notes.md',
+      '--dry',
+      '--commit',
+      '--release',
+      '--author',
+      'Release Author <release@example.com>',
+      '--token',
+      'secret',
+    ],
+    { cwd: '/project' },
   )
 
-  await expect(readFile(join(cwd, 'notes.md'), 'utf8')).resolves.toBe(expectedChangelog)
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
-    code: 'ENOENT',
-  })
-})
-
-test('prints the changelog without writing a file with --dry', async () => {
-  const cwd = await createRepository()
-  let output = ''
-
-  await runCli(
-    ['1.1.0', '--dry'],
+  expect(runChangelog).toHaveBeenCalledOnce()
+  expect(runChangelog).toHaveBeenCalledWith(
     {
-      cwd,
-      stdout: value => output += value,
+      version: '1.1.0',
+      output: 'notes.md',
+      dry: true,
+      commit: true,
+      release: true,
+      author: 'Release Author <release@example.com>',
+      token: 'secret',
     },
+    { cwd: '/project' },
   )
+})
 
-  expect(output).toBe(expectedChangelog)
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
-    code: 'ENOENT',
-  })
+test('requires a release version before executing', async () => {
+  await expect(
+    runCli([], { cwd: '/project' }),
+  ).rejects.toThrow('A release version is required')
+  expect(runChangelog).not.toHaveBeenCalled()
 })

@@ -121,7 +121,7 @@ function parseGitLog(log: string) {
   return commits
 }
 
-function parseCommit(
+export function parseCommit(
   hash: string,
   subject: string,
   body: string,
