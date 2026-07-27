@@ -52,6 +52,12 @@ export function writeChangelog(path: string, changelog: string) {
   return writeFile(path, changelog)
 }
 
+export function hasRelease(changelog: string, version: string) {
+  const releaseVersion = /^v?(\d+\.\d+\.\d+)/.exec(version)?.[1]
+  return [...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+).*$/gm)]
+    .some(heading => heading[1] === releaseVersion)
+}
+
 export function insertRelease(changelog: string, release: string) {
   const releaseVersion = /^##\s+v?(\d+\.\d+\.\d+)/.exec(release)?.[1]
   const headings = [...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+).*$/gm)]

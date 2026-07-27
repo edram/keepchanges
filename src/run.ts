@@ -5,6 +5,7 @@ import ansis from 'ansis'
 import { version as packageVersion } from '../package.json'
 import {
   createChangelog,
+  hasRelease,
   insertRelease,
   readChangelog,
   writeChangelog,
@@ -186,6 +187,7 @@ export async function runChangelog(
     options.output || 'CHANGELOG.md',
   )
   const currentChangelog = await readChangelog(outputPath)
+  const releaseExists = hasRelease(currentChangelog, version)
   const changelog = insertRelease(currentChangelog, release)
 
   if (options.dry) {
@@ -228,11 +230,23 @@ export async function runChangelog(
     )
     if (changes.trim()) {
       await git(environment.cwd, 'add', '--', ...releasePaths)
+      const versionChanges = versionPath
+        ? await git(
+            environment.cwd,
+            'status',
+            '--porcelain',
+            '--',
+            versionPath,
+          )
+        : ''
+      const commitMessage = versionPath && !versionChanges.trim()
+        ? `docs(changelog): ${releaseExists ? 'update' : 'add'} v${version} release notes`
+        : `chore(release): v${version}`
       await git(
         environment.cwd,
         'commit',
         '-m',
-        `chore(release): v${version}`,
+        commitMessage,
         ...(options.author ? ['--author', options.author] : []),
         '--only',
         '--',

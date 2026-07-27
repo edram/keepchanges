@@ -16,6 +16,9 @@ export const npmVersionProvider: VersionProvider = {
       return
 
     const packageJson = JSON.parse(contents)
+    if (packageJson.version === version)
+      return path
+
     packageJson.version = version
 
     const indent = /\n([ \t]+)"/.exec(contents)?.[1] ?? '  '

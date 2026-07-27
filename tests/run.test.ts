@@ -45,6 +45,47 @@ test('updates and commits an npm package version with --commit', async () => {
   expect(committedFiles).toEqual(['CHANGELOG.md', 'package.json'])
 })
 
+test('commits only release notes when the package version is already committed', async () => {
+  const cwd = await createRepository()
+  const packageJson = '{"name":"test-package","version":"1.1.0"}\n'
+  await writeFile(join(cwd, 'package.json'), packageJson)
+  await command(cwd, 'git', 'add', 'package.json')
+  await command(cwd, 'git', 'commit', '-m', 'release: v1.1.0')
+
+  await runCli(['1.1.0', '--commit'], { cwd })
+
+  expect(
+    (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
+  ).toBe('docs(changelog): add v1.1.0 release notes')
+  expect(
+    (await command(cwd, 'git', 'show', '--format=', '--name-only', 'HEAD'))
+      .stdout.trim(),
+  ).toBe('CHANGELOG.md')
+  await expect(readFile(join(cwd, 'package.json'), 'utf8')).resolves.toBe(
+    packageJson,
+  )
+})
+
+test('describes an existing release notes update in the commit message', async () => {
+  const cwd = await createRepository()
+  await writeFile(
+    join(cwd, 'package.json'),
+    '{"name":"test-package","version":"1.1.0"}\n',
+  )
+  await writeFile(
+    join(cwd, 'CHANGELOG.md'),
+    '# Changelog\n\n## v1.1.0\n\n- Stale release notes\n',
+  )
+  await command(cwd, 'git', 'add', 'package.json', 'CHANGELOG.md')
+  await command(cwd, 'git', 'commit', '-m', 'publish version 1.1.0')
+
+  await runCli(['1.1.0', '--commit'], { cwd })
+
+  expect(
+    (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
+  ).toBe('docs(changelog): update v1.1.0 release notes')
+})
+
 test('updates an npm package version without --commit', async () => {
   const cwd = await createRepository()
   await addPackage(cwd)
