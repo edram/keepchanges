@@ -183,8 +183,8 @@ test('commits with the author provided by --author', async () => {
   expect(identity).toEqual([
     'Release Author',
     'release@example.com',
-    'Test Author',
-    'author@example.com',
+    'Release Author',
+    'release@example.com',
   ])
 })
 

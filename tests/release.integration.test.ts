@@ -9,9 +9,11 @@ import {
 } from './release'
 import type { GitHubRequest } from './release'
 
-test('creates and pushes a tag before publishing a GitHub release', async () => {
+test('creates and pushes a release without Git identity configuration', async () => {
   const { cwd, remote } = await createReleaseRepository()
   const requests: GitHubRequest[] = []
+  await command(cwd, 'git', 'config', 'user.name', '')
+  await command(cwd, 'git', 'config', 'user.email', '')
 
   await runChangelog(
     { version: '1.1.0', release: true, token: 'secret' },
@@ -25,6 +27,36 @@ test('creates and pushes a tag before publishing a GitHub release', async () => 
   expect(
     (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
   ).toBe('chore(release): v1.1.0')
+  expect(
+    (
+      await command(
+        cwd,
+        'git',
+        'log',
+        '-1',
+        '--format=%an%x00%ae%x00%cn%x00%ce',
+      )
+    ).stdout.trim().split('\0'),
+  ).toEqual([
+    'github-actions[bot]',
+    '41898282+github-actions[bot]@users.noreply.github.com',
+    'github-actions[bot]',
+    '41898282+github-actions[bot]@users.noreply.github.com',
+  ])
+  expect(
+    (
+      await command(
+        cwd,
+        'git',
+        'for-each-ref',
+        '--format=%(taggername)%00%(taggeremail)',
+        'refs/tags/v1.1.0',
+      )
+    ).stdout.trim().split('\0'),
+  ).toEqual([
+    'github-actions[bot]',
+    '<41898282+github-actions[bot]@users.noreply.github.com>',
+  ])
   const tagCommit = (
     await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
   ).stdout.trim()

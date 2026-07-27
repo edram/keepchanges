@@ -21,6 +21,9 @@ import {
 import { resolveRepository } from './repository'
 import { updateVersion } from './version'
 
+const defaultAuthor
+  = 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
+
 export interface CliEnvironment {
   cwd: string
   env?: NodeJS.ProcessEnv
@@ -45,6 +48,9 @@ export async function runChangelog(
 ) {
   const { version } = options
   const tag = `v${version}`
+  const gitIdentity = options.commit || options.release
+    ? resolveGitIdentity(options.author)
+    : []
   const env = environment.env ?? process.env
   const stdout = environment.stdout ?? (value => process.stdout.write(value))
   const colors = environment.colors ?? ansis
@@ -244,6 +250,7 @@ export async function runChangelog(
         : `chore(release): v${version}`
       await git(
         environment.cwd,
+        ...gitIdentity,
         'commit',
         '-m',
         commitMessage,
@@ -255,7 +262,15 @@ export async function runChangelog(
     }
   }
   if (options.release) {
-    await git(environment.cwd, 'tag', '-a', tag, '-m', tag)
+    await git(
+      environment.cwd,
+      ...gitIdentity,
+      'tag',
+      '-a',
+      tag,
+      '-m',
+      tag,
+    )
     await git(
       environment.cwd,
       'push',
@@ -269,4 +284,17 @@ export async function runChangelog(
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function resolveGitIdentity(author = defaultAuthor) {
+  const match = /^(.+?)\s*<([^<>]+)>$/.exec(author)
+  if (!match)
+    throw new Error('Author must use the "Name <email>" format')
+
+  return [
+    '-c',
+    `user.name=${match[1].trim()}`,
+    '-c',
+    `user.email=${match[2].trim()}`,
+  ]
 }
