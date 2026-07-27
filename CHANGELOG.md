@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.0.2
+
+### 🚀 Features
+
+- Show pull request links &nbsp;-&nbsp; by @edram and **Codex GPT-5** in [#2](https://github.com/edram/keepchanges/pull/2) [<samp>(85ac8)</samp>](https://github.com/edram/keepchanges/commit/85ac812)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v0.0.1...v0.0.2)
+
 ## v0.0.1
 
 ### 🚀 Features
