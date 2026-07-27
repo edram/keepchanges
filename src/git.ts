@@ -14,8 +14,12 @@ export interface Commit extends RepositoryCommit {
 export async function git(cwd: string, ...args: string[]) {
   const result = await x('git', args, {
     nodeOptions: { cwd },
-    throwOnError: true,
   })
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.stderr.trim() || `Git exited with status ${result.exitCode}`,
+    )
+  }
   return result.stdout
 }
 

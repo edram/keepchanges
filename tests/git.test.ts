@@ -1,7 +1,7 @@
 import type { RepositoryAuthor } from '../src/provider'
 import { describe, expect, test } from 'vitest'
-import { parseCommit, readCommits } from '../src/git'
-import { createRepository } from './git'
+import { git, parseCommit, readCommits } from '../src/git'
+import { command, createRepository } from './git'
 
 const author: RepositoryAuthor = {
   name: 'Test Author',
@@ -91,4 +91,14 @@ test('reads conventional commits from a Git range', async () => {
       isBreaking: false,
     },
   ])
+})
+
+test('reports Git stderr when a command fails', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'config', 'user.name', '')
+  await command(cwd, 'git', 'config', 'user.email', '')
+
+  await expect(
+    git(cwd, 'commit', '--allow-empty', '-m', 'test'),
+  ).rejects.toThrow(/Author identity unknown|empty ident name/)
 })
