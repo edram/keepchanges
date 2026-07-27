@@ -145,7 +145,7 @@ export async function runChangelog(
   }
   const printReleasePreview = () => {
     stdout([
-      colors.dim(`git${colors.bold('changelog')} v${packageVersion}`),
+      colors.dim(`keep${colors.bold('changes')} v${packageVersion}`),
       `${colors.cyan(from || comparisonFrom)}${colors.dim(' -> ')}${colors.blue(tag)}${colors.dim(` (${commits.length} commits)`)}`,
       colors.dim('--------------'),
       '',

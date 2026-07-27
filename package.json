@@ -1,17 +1,17 @@
 {
-  "name": "gitchangelog",
+  "name": "keepchanges",
   "type": "module",
   "version": "0.0.0",
   "description": "Generate and maintain CHANGELOG.md from Conventional Commits.",
   "author": "edram",
   "license": "MIT",
-  "homepage": "https://github.com/edram/gitchangelog#readme",
+  "homepage": "https://github.com/edram/keepchanges#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/edram/gitchangelog.git"
+    "url": "git+https://github.com/edram/keepchanges.git"
   },
   "bugs": {
-    "url": "https://github.com/edram/gitchangelog/issues"
+    "url": "https://github.com/edram/keepchanges/issues"
   },
   "bin": {
     "changelog": "./dist/cli.mjs"

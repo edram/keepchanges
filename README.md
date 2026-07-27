@@ -1,4 +1,4 @@
-# gitchangelog
+# keepchanges
 
 Generate and maintain `CHANGELOG.md` from Conventional Commits.
 
@@ -26,13 +26,13 @@ Generate and maintain `CHANGELOG.md` from Conventional Commits.
 在 Git 仓库根目录运行，并传入要发布的版本号：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0
+npx keepchanges 1.1.0
 ```
 
 也可以使用带 `v` 前缀的版本号：
 
 ```bash
-pnpm dlx gitchangelog v1.1.0
+npx keepchanges v1.1.0
 ```
 
 默认行为会写入 `CHANGELOG.md`。如果当前项目是 npm 包，还会将
@@ -41,7 +41,7 @@ pnpm dlx gitchangelog v1.1.0
 ### 命令格式
 
 ```text
-pnpm dlx gitchangelog <version> [options]
+npx keepchanges <version> [options]
 ```
 
 #### 参数
@@ -61,38 +61,38 @@ pnpm dlx gitchangelog <version> [options]
 指定输出文件：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --output docs/CHANGELOG.md
+npx keepchanges 1.1.0 --output docs/CHANGELOG.md
 ```
 
 预览完整 changelog，不修改文件：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --dry
+npx keepchanges 1.1.0 --dry
 ```
 
 写入 changelog、更新版本并创建 commit：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --commit
+npx keepchanges 1.1.0 --commit
 ```
 
 指定 release commit 的作者：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --commit \
+npx keepchanges 1.1.0 --commit \
   --author "Release Author <release@example.com>"
 ```
 
 创建 GitHub Release：
 
 ```bash
-GITHUB_TOKEN=github_pat_xxx pnpm dlx gitchangelog 1.1.0 --release
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
 预览 Release，不写文件、不提交、不创建 tag、不推送且不调用发布 API：
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --release --dry
+npx keepchanges 1.1.0 --release --dry
 ```
 
 ### 生成和发布行为
@@ -150,13 +150,13 @@ Node.js 20.19.0 or later is required.
 Run the CLI at the root of a Git repository and provide the version to release:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0
+npx keepchanges 1.1.0
 ```
 
 The version may also include a leading `v`:
 
 ```bash
-pnpm dlx gitchangelog v1.1.0
+npx keepchanges v1.1.0
 ```
 
 By default, the command writes `CHANGELOG.md`. For an npm package, it also
@@ -165,7 +165,7 @@ updates `package.json#version` to `1.1.0`, but it does not create a Git commit.
 ### Command
 
 ```text
-pnpm dlx gitchangelog <version> [options]
+npx keepchanges <version> [options]
 ```
 
 #### Arguments and options
@@ -185,39 +185,39 @@ pnpm dlx gitchangelog <version> [options]
 Write to a different file:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --output docs/CHANGELOG.md
+npx keepchanges 1.1.0 --output docs/CHANGELOG.md
 ```
 
 Preview the complete changelog without changing files:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --dry
+npx keepchanges 1.1.0 --dry
 ```
 
 Write the changelog, update the version, and create a commit:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --commit
+npx keepchanges 1.1.0 --commit
 ```
 
 Set the release commit author:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --commit \
+npx keepchanges 1.1.0 --commit \
   --author "Release Author <release@example.com>"
 ```
 
 Create a GitHub Release:
 
 ```bash
-GITHUB_TOKEN=github_pat_xxx pnpm dlx gitchangelog 1.1.0 --release
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
 Preview a Release without writing, committing, tagging, pushing, or calling the
 release API:
 
 ```bash
-pnpm dlx gitchangelog 1.1.0 --release --dry
+npx keepchanges 1.1.0 --release --dry
 ```
 
 ### Generation and release behavior
