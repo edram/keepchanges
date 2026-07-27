@@ -39,4 +39,42 @@ export const giteaProvider: RepositoryProvider = {
   compareUrl(repository, from, to) {
     return `${repository.webUrl}/compare/${from}...${to}`
   },
+
+  async resolveAuthors(commits, repository, token, fetch) {
+    const headers = {
+      accept: 'application/json',
+      authorization: `token ${token}`,
+    }
+    const commitsByEmail = new Map(
+      commits.flatMap(commit =>
+        commit.authors[0]
+          ? [[commit.authors[0].email, commit] as const]
+          : [],
+      ),
+    )
+    const loginsByEmail = new Map<string, string>()
+
+    await Promise.all([...commitsByEmail].map(async ([email, commit]) => {
+      try {
+        const response = await fetch(
+          `${new URL(repository.webUrl).origin}/api/v1/repos/${repository.path}/git/commits/${commit.hash}`,
+          { headers },
+        )
+        if (!response.ok)
+          return
+
+        const data = await response.json() as {
+          author?: { login?: string }
+        }
+        if (data.author?.login)
+          loginsByEmail.set(email, data.author.login)
+      }
+      catch {}
+    }))
+
+    for (const commit of commits) {
+      for (const author of commit.authors)
+        author.login = loginsByEmail.get(author.email)
+    }
+  },
 }
