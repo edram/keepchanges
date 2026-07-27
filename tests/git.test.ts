@@ -21,7 +21,20 @@ describe('parseCommit', () => {
       type: 'feat',
       scope: 'parser',
       description: 'handle separators',
+      pullRequests: [],
       isBreaking: false,
+    })
+  })
+
+  test('extracts pull requests from squash commit subjects', () => {
+    expect(parseCommit(
+      '1234567',
+      'feat: add CLI (#123)',
+      '',
+      author,
+    )).toMatchObject({
+      description: 'add CLI',
+      pullRequests: ['#123'],
     })
   })
 
@@ -88,6 +101,7 @@ test('reads conventional commits from a Git range', async () => {
       type: 'feat',
       scope: '',
       description: 'add CLI',
+      pullRequests: [],
       isBreaking: false,
     },
   ])
