@@ -167,3 +167,25 @@ test('replaces the same release when its existing heading has no v prefix', asyn
   expect(changelog).toContain('## v1.1.0')
   expect(changelog).not.toContain('Stale content')
 })
+
+test('keeps prerelease and stable release headings distinct', async () => {
+  const cwd = await createRepository()
+  await writeFile(
+    join(cwd, 'CHANGELOG.md'),
+    [
+      '# Changelog',
+      '',
+      '## v1.1.0-beta.1',
+      '',
+      '- Beta release',
+      '',
+    ].join('\n'),
+  )
+
+  await runCli(['1.1.0'], { cwd })
+
+  const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
+  expect(changelog).toContain('## v1.1.0\n')
+  expect(changelog).toContain('## v1.1.0-beta.1\n')
+  expect(changelog).toContain('- Beta release')
+})

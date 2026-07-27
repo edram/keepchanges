@@ -52,6 +52,7 @@
   "dependencies": {
     "ansis": "^4.3.1",
     "cac": "^7.0.0",
-    "tinyexec": "^1.2.4"
+    "tinyexec": "^1.2.4",
+    "verkit": "^0.3.0"
   }
 }

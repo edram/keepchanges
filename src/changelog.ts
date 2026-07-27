@@ -1,6 +1,7 @@
 import type { Commit } from './git'
 import type { Repository } from './provider'
 import { readFile, writeFile } from 'node:fs/promises'
+import { normalizeFull } from 'verkit'
 
 export function createChangelog(
   version: string,
@@ -53,16 +54,16 @@ export function writeChangelog(path: string, changelog: string) {
 }
 
 export function hasRelease(changelog: string, version: string) {
-  const releaseVersion = /^v?(\d+\.\d+\.\d+)/.exec(version)?.[1]
-  return [...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+).*$/gm)]
-    .some(heading => heading[1] === releaseVersion)
+  const releaseVersion = normalizeFull(version)
+  return releaseHeadings(changelog)
+    .some(heading => heading.version === releaseVersion)
 }
 
 export function insertRelease(changelog: string, release: string) {
-  const releaseVersion = /^##\s+v?(\d+\.\d+\.\d+)/.exec(release)?.[1]
-  const headings = [...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+).*$/gm)]
+  const releaseVersion = releaseHeadings(release)[0]?.version
+  const headings = releaseHeadings(changelog)
   const existingReleaseIndex = headings.findIndex(
-    heading => heading[1] === releaseVersion,
+    heading => heading.version === releaseVersion,
   )
 
   if (existingReleaseIndex !== -1) {
@@ -71,13 +72,21 @@ export function insertRelease(changelog: string, release: string) {
     changelog = changelog.slice(0, start) + changelog.slice(end)
   }
 
-  const firstRelease = /^##\s+v?\d+\.\d+\.\d+.*$/m.exec(changelog)
+  const firstRelease = releaseHeadings(changelog)[0]
   if (!firstRelease)
     return `${changelog.trimEnd()}\n\n${release.trim()}\n`
 
   const preamble = changelog.slice(0, firstRelease.index).trimEnd()
   const history = changelog.slice(firstRelease.index).trim()
   return `${preamble}\n\n${release.trim()}\n\n${history}\n`
+}
+
+function releaseHeadings(changelog: string) {
+  return [...changelog.matchAll(/^##\s+(\S+).*$/gm)]
+    .flatMap((heading) => {
+      const version = normalizeFull(heading[1])
+      return version ? [{ index: heading.index, version }] : []
+    })
 }
 
 function renderSection(

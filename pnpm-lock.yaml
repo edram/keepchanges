@@ -17,6 +17,9 @@ importers:
       tinyexec:
         specifier: ^1.2.4
         version: 1.2.4
+      verkit:
+        specifier: ^0.3.0
+        version: 0.3.0
     devDependencies:
       '@types/node':
         specifier: ^26.1.1
