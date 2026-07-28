@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.0.3
+
+### 🚀 Features
+
+- Support Gitea changelogs &nbsp;-&nbsp; by @edram and **Codex GPT-5** in [#3](https://github.com/edram/keepchanges/pull/3) [<samp>(10a7e)</samp>](https://github.com/edram/keepchanges/commit/10a7eb9)
+- **gitea**: Publish releases &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(6c5f4)</samp>](https://github.com/edram/keepchanges/commit/6c5f4ea)
+- **changelog**: Include performance commits &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(8aa17)</samp>](https://github.com/edram/keepchanges/commit/8aa17fe)
+
+### 🐞 Bug Fixes
+
+- **changelog**: Group repeated scopes &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(a039f)</samp>](https://github.com/edram/keepchanges/commit/a039fa3)
+- **cli**: Limit dry run output to current release &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(388d6)</samp>](https://github.com/edram/keepchanges/commit/388d606)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v0.0.2...v0.0.3)
+
 ## v0.0.2
 
 ### 🚀 Features
