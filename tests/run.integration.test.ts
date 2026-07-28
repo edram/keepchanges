@@ -150,6 +150,8 @@ it('writes the changelog to a custom output path', async () => {
 
 it('prints a dry run without modifying files', async () => {
   const cwd = await createRepository()
+  const existingChangelog = '# Changelog\n\n## v1.0.0\n\n- Initial release\n'
+  await writeFile(join(cwd, 'CHANGELOG.md'), existingChangelog)
   let output = ''
 
   await runChangelog(
@@ -157,10 +159,10 @@ it('prints a dry run without modifying files', async () => {
     { cwd, stdout: value => output += value },
   )
 
-  expect(output).toBe(expectedChangelog)
+  expect(output).toBe(expectedChangelog.replace('# Changelog\n\n', ''))
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
-    .rejects
-    .toMatchObject({ code: 'ENOENT' })
+    .resolves
+    .toBe(existingChangelog)
 })
 
 it('commits with the author provided by --author', async () => {
