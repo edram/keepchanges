@@ -8,7 +8,7 @@ export function createChangelog(
   commits: Commit[],
   repository: Repository | undefined,
   comparisonFrom: string,
-) {
+): { body: string, release: string } {
   const body = [
     ...renderSection(
       commits.filter(commit => commit.isBreaking),
@@ -39,7 +39,7 @@ export function createChangelog(
   }
 }
 
-export async function readChangelog(path: string) {
+export async function readChangelog(path: string): Promise<string> {
   return readFile(path, 'utf8').catch(
     (error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT')
@@ -49,17 +49,17 @@ export async function readChangelog(path: string) {
   )
 }
 
-export function writeChangelog(path: string, changelog: string) {
+export function writeChangelog(path: string, changelog: string): Promise<void> {
   return writeFile(path, changelog)
 }
 
-export function hasRelease(changelog: string, version: string) {
+export function hasRelease(changelog: string, version: string): boolean {
   const releaseVersion = normalizeFull(version)
   return releaseHeadings(changelog)
     .some(heading => heading.version === releaseVersion)
 }
 
-export function insertRelease(changelog: string, release: string) {
+export function insertRelease(changelog: string, release: string): string {
   const releaseVersion = releaseHeadings(release)[0]?.version
   const headings = releaseHeadings(changelog)
   const existingReleaseIndex = headings.findIndex(
@@ -81,8 +81,8 @@ export function insertRelease(changelog: string, release: string) {
   return `${preamble}\n\n${release.trim()}\n\n${history}\n`
 }
 
-function releaseHeadings(changelog: string) {
-  return [...changelog.matchAll(/^##\s+(\S+).*$/gm)]
+function releaseHeadings(changelog: string): Array<{ index: number, version: string }> {
+  return [...changelog.matchAll(/^##[^\S\r\n]+(\S+)/gm)]
     .flatMap((heading) => {
       const version = normalizeFull(heading[1])
       return version ? [{ index: heading.index, version }] : []
@@ -93,7 +93,7 @@ function renderSection(
   commits: Commit[],
   title: string,
   repository: Repository | undefined,
-) {
+): string[] {
   const lines = commits
     .map((commit) => {
       const scope = commit.scope ? `**${escapeHtml(commit.scope)}**: ` : ''
@@ -134,11 +134,11 @@ function renderSection(
   ]
 }
 
-function capitalize(value: string) {
+function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-function escapeHtml(value: string) {
+function escapeHtml(value: string): string {
   const htmlEntities: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',

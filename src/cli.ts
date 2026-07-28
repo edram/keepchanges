@@ -10,7 +10,10 @@ import { runChangelog } from './run'
 
 export type { CliEnvironment } from './run'
 
-export async function runCli(args: string[], environment: CliEnvironment) {
+export async function runCli(
+  args: string[],
+  environment: CliEnvironment,
+): Promise<void> {
   const cli = cac('changelog')
     .version(version)
     .option('--output <path>', 'Changelog file path')

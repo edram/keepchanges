@@ -1,15 +1,15 @@
+import type { GitHubRequest } from './release'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { expect, it } from 'vitest'
 import { runChangelog } from '../src/run'
 import { command, commit } from './git'
 import {
   createReleaseRepository,
   githubReleaseFetch,
 } from './release'
-import type { GitHubRequest } from './release'
 
-test('creates and pushes a release without Git identity configuration', async () => {
+it('creates and pushes a release without Git identity configuration', async () => {
   const { cwd, remote } = await createReleaseRepository()
   const requests: GitHubRequest[] = []
   await command(cwd, 'git', 'config', 'user.name', '')
@@ -84,7 +84,7 @@ test('creates and pushes a release without Git identity configuration', async ()
   expect(publish?.body?.body).not.toContain('## v1.1.0')
 })
 
-test('skips provider requests without a token', async () => {
+it('skips provider requests without a token', async () => {
   const { cwd, remote } = await createReleaseRepository()
 
   await runChangelog(
@@ -110,7 +110,7 @@ test('skips provider requests without a token', async () => {
   ).not.toBe('')
 })
 
-test('reuses a release commit created before --release', async () => {
+it('reuses a release commit created before --release', async () => {
   const { cwd } = await createReleaseRepository()
   await runChangelog(
     { version: '1.1.0', commit: true, token: 'secret' },
@@ -137,7 +137,7 @@ test('reuses a release commit created before --release', async () => {
   ).toBe(releaseCommit)
 })
 
-test('publishes an existing tag without moving it or including later commits', async () => {
+it('publishes an existing tag without moving it or including later commits', async () => {
   const { cwd } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
   await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
@@ -173,7 +173,7 @@ test('publishes an existing tag without moving it or including later commits', a
   expect(publish?.body?.body).not.toContain('Reformat changelog')
 })
 
-test('pushes an existing local tag before publishing a release', async () => {
+it('pushes an existing local tag before publishing a release', async () => {
   const { cwd, remote } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
   const tagCommit = (
@@ -201,7 +201,7 @@ test('pushes an existing local tag before publishing a release', async () => {
   ).toBe(tagCommit)
 })
 
-test('fetches an existing remote tag before publishing a release', async () => {
+it('fetches an existing remote tag before publishing a release', async () => {
   const { cwd } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
   const tagCommit = (
@@ -233,7 +233,7 @@ test('fetches an existing remote tag before publishing a release', async () => {
   })
 })
 
-test('rejects conflicting local and remote release tags', async () => {
+it('rejects conflicting local and remote release tags', async () => {
   const { cwd, remote } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
   await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
@@ -271,7 +271,7 @@ test('rejects conflicting local and remote release tags', async () => {
   ).toBe(remoteTag)
 })
 
-test('releases while preserving unrelated working tree changes', async () => {
+it('releases while preserving unrelated working tree changes', async () => {
   const { cwd, remote } = await createReleaseRepository()
   await writeFile(join(cwd, 'file.txt'), 'uncommitted change')
 
@@ -302,7 +302,7 @@ test('releases while preserving unrelated working tree changes', async () => {
   ).not.toBe('')
 })
 
-test('previews a release without local or remote mutations with --dry', async () => {
+it('previews a release without local or remote mutations with --dry', async () => {
   const { cwd, remote } = await createReleaseRepository()
   const head = (
     await command(cwd, 'git', 'rev-parse', 'HEAD')
@@ -339,7 +339,7 @@ test('previews a release without local or remote mutations with --dry', async ()
   })
 })
 
-test('does not fetch a missing local tag during a release dry run', async () => {
+it('does not fetch a missing local tag during a release dry run', async () => {
   const { cwd } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
   await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
@@ -361,7 +361,7 @@ test('does not fetch a missing local tag during a release dry run', async () => 
   ).toBe('')
 })
 
-test('compares a stable release with the previous stable tag', async () => {
+it('compares a stable release with the previous stable tag', async () => {
   const { cwd } = await createReleaseRepository()
   await command(
     cwd,

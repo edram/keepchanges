@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { expect, it } from 'vitest'
 import { runChangelog } from '../src/run'
 import { addPackage, command, createRepository } from './git'
 
@@ -15,7 +15,7 @@ const expectedChangelog = [
   '',
 ].join('\n')
 
-test('generates the first release from the initial commit', async () => {
+it('generates the first release from the initial commit', async () => {
   const cwd = await createRepository()
   await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
   await command(
@@ -40,7 +40,7 @@ test('generates the first release from the initial commit', async () => {
   )
 })
 
-test('commits the changelog with --commit', async () => {
+it('commits the changelog with --commit', async () => {
   const cwd = await createRepository()
 
   await runChangelog({ version: '1.1.0', commit: true }, { cwd })
@@ -54,7 +54,7 @@ test('commits the changelog with --commit', async () => {
   ).toBe(expectedChangelog)
 })
 
-test('updates and commits an npm package version with --commit', async () => {
+it('updates and commits an npm package version with --commit', async () => {
   const cwd = await createRepository()
   await addPackage(cwd)
 
@@ -70,7 +70,7 @@ test('updates and commits an npm package version with --commit', async () => {
   expect(committedFiles).toEqual(['CHANGELOG.md', 'package.json'])
 })
 
-test('commits only release notes when the package version is already committed', async () => {
+it('commits only release notes when the package version is already committed', async () => {
   const cwd = await createRepository()
   const packageJson = '{"name":"test-package","version":"1.1.0"}\n'
   await writeFile(join(cwd, 'package.json'), packageJson)
@@ -91,7 +91,7 @@ test('commits only release notes when the package version is already committed',
   )
 })
 
-test('describes an existing release notes update in the commit message', async () => {
+it('describes an existing release notes update in the commit message', async () => {
   const cwd = await createRepository()
   await writeFile(
     join(cwd, 'package.json'),
@@ -111,7 +111,7 @@ test('describes an existing release notes update in the commit message', async (
   ).toBe('docs(changelog): update v1.1.0 release notes')
 })
 
-test('updates an npm package version without --commit', async () => {
+it('updates an npm package version without --commit', async () => {
   const cwd = await createRepository()
   await addPackage(cwd)
   const head = (
@@ -125,13 +125,14 @@ test('updates an npm package version without --commit', async () => {
   )
   expect(packageJson.version).toBe('1.1.0')
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
-    .resolves.toBe(expectedChangelog)
+    .resolves
+    .toBe(expectedChangelog)
   expect(
     (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
   ).toBe(head)
 })
 
-test('writes the changelog to a custom output path', async () => {
+it('writes the changelog to a custom output path', async () => {
   const cwd = await createRepository()
 
   await runChangelog(
@@ -140,12 +141,14 @@ test('writes the changelog to a custom output path', async () => {
   )
 
   await expect(readFile(join(cwd, 'notes.md'), 'utf8'))
-    .resolves.toBe(expectedChangelog)
+    .resolves
+    .toBe(expectedChangelog)
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
-    .rejects.toMatchObject({ code: 'ENOENT' })
+    .rejects
+    .toMatchObject({ code: 'ENOENT' })
 })
 
-test('prints a dry run without modifying files', async () => {
+it('prints a dry run without modifying files', async () => {
   const cwd = await createRepository()
   let output = ''
 
@@ -156,10 +159,11 @@ test('prints a dry run without modifying files', async () => {
 
   expect(output).toBe(expectedChangelog)
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
-    .rejects.toMatchObject({ code: 'ENOENT' })
+    .rejects
+    .toMatchObject({ code: 'ENOENT' })
 })
 
-test('commits with the author provided by --author', async () => {
+it('commits with the author provided by --author', async () => {
   const cwd = await createRepository()
 
   await runChangelog(
@@ -188,7 +192,7 @@ test('commits with the author provided by --author', async () => {
   ])
 })
 
-test('commits only the changelog and preserves other staged changes', async () => {
+it('commits only the changelog and preserves other staged changes', async () => {
   const cwd = await createRepository()
   await writeFile(join(cwd, 'staged.txt'), 'keep staged')
   await command(cwd, 'git', 'add', 'staged.txt')

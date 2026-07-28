@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, onTestFinished, test } from 'vitest'
+import { expect, it, onTestFinished } from 'vitest'
 import { npmVersionProvider } from '../src/versions/npm'
 
 async function createDirectory() {
@@ -10,7 +10,7 @@ async function createDirectory() {
   return cwd
 }
 
-test('updates the npm package version while preserving its formatting', async () => {
+it('updates the npm package version while preserving its formatting', async () => {
   const cwd = await createDirectory()
   const path = join(cwd, 'package.json')
   await writeFile(
@@ -24,7 +24,7 @@ test('updates the npm package version while preserving its formatting', async ()
   )
 })
 
-test('leaves an existing package version unchanged', async () => {
+it('leaves an existing package version unchanged', async () => {
   const cwd = await createDirectory()
   const path = join(cwd, 'package.json')
   const contents = '{"name":"test-package","version":"1.1.0"}'
@@ -34,9 +34,10 @@ test('leaves an existing package version unchanged', async () => {
   await expect(readFile(path, 'utf8')).resolves.toBe(contents)
 })
 
-test('ignores directories without an npm package', async () => {
+it('ignores directories without an npm package', async () => {
   const cwd = await createDirectory()
 
   await expect(npmVersionProvider.update(cwd, '1.1.0'))
-    .resolves.toBeUndefined()
+    .resolves
+    .toBeUndefined()
 })

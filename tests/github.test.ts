@@ -2,7 +2,7 @@ import type {
   RepositoryCommit,
   RepositoryRelease,
 } from '../src/provider'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { githubProvider } from '../src/providers/github'
 
 const repository = githubProvider.parse(
@@ -15,8 +15,8 @@ const release: RepositoryRelease = {
   prerelease: false,
 }
 
-describe('GitHub repository metadata', () => {
-  test.each([
+describe('gitHub repository metadata', () => {
+  it.each([
     'git@github.com:example/project.git',
     'https://github.com/example/project.git',
     'git+https://github.com/example/project.git',
@@ -27,12 +27,12 @@ describe('GitHub repository metadata', () => {
     })
   })
 
-  test('rejects repositories from other providers', () => {
+  it('rejects repositories from other providers', () => {
     expect(githubProvider.parse('https://gitea.example.com/example/project.git'))
       .toBeUndefined()
   })
 
-  test('resolves explicit and environment tokens in precedence order', () => {
+  it('resolves explicit and environment tokens in precedence order', () => {
     expect(githubProvider.token(
       'explicit',
       { GITHUB_TOKEN: 'github', GH_TOKEN: 'gh' },
@@ -44,7 +44,7 @@ describe('GitHub repository metadata', () => {
     expect(githubProvider.token(undefined, { GH_TOKEN: 'gh' })).toBe('gh')
   })
 
-  test('creates commit, comparison, and manual release URLs', () => {
+  it('creates commit, comparison, and manual release URLs', () => {
     expect(githubProvider.commitUrl(repository, '1234567')).toBe(
       'https://github.com/example/project/commit/1234567',
     )
@@ -65,8 +65,8 @@ describe('GitHub repository metadata', () => {
   })
 })
 
-describe('GitHub authors', () => {
-  test('resolves an author from the GitHub commit when email search misses', async () => {
+describe('gitHub authors', () => {
+  it('resolves an author from the GitHub commit when email search misses', async () => {
     const commits: RepositoryCommit[] = [{
       hash: '1234567',
       authors: [{ name: 'Test Author', email: 'author@example.com' }],
@@ -96,7 +96,7 @@ describe('GitHub authors', () => {
     expect(commits[0].authors[0].login).toBe('commit-author')
   })
 
-  test('reuses a resolved login for the same email', async () => {
+  it('reuses a resolved login for the same email', async () => {
     const commits: RepositoryCommit[] = [
       {
         hash: '1234567',
@@ -126,8 +126,8 @@ describe('GitHub authors', () => {
   })
 })
 
-describe('GitHub releases', () => {
-  test('creates a release when the tag has not been published', async () => {
+describe('gitHub releases', () => {
+  it('creates a release when the tag has not been published', async () => {
     const requests: Array<{ url: string, init?: RequestInit }> = []
     const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
       const url = String(input)
@@ -167,7 +167,7 @@ describe('GitHub releases', () => {
     })
   })
 
-  test('updates the release already associated with the tag', async () => {
+  it('updates the release already associated with the tag', async () => {
     const requests: Array<{ url: string, method?: string }> = []
     const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
       const url = String(input)

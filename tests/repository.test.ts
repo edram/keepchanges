@@ -1,10 +1,10 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { expect, it } from 'vitest'
 import { resolveRepository } from '../src/repository'
 import { command, createRepository } from './git'
 
-test('resolves a string repository from package.json', async () => {
+it('resolves a string repository from package.json', async () => {
   const cwd = await createRepository()
   await writeFile(
     join(cwd, 'package.json'),
@@ -19,7 +19,7 @@ test('resolves a string repository from package.json', async () => {
   })
 })
 
-test('resolves an object repository from package.json', async () => {
+it('resolves an object repository from package.json', async () => {
   const cwd = await createRepository()
   await writeFile(
     join(cwd, 'package.json'),
@@ -37,7 +37,7 @@ test('resolves an object repository from package.json', async () => {
   })
 })
 
-test('resolves an explicitly configured Gitea repository', async () => {
+it('resolves an explicitly configured Gitea repository', async () => {
   const cwd = await createRepository()
   await writeFile(
     join(cwd, 'package.json'),
@@ -72,7 +72,7 @@ test('resolves an explicitly configured Gitea repository', async () => {
   )
 })
 
-test('prefers package.json over the Git origin', async () => {
+it('prefers package.json over the Git origin', async () => {
   const cwd = await createRepository()
   await command(
     cwd,
@@ -92,7 +92,7 @@ test('prefers package.json over the Git origin', async () => {
   expect((await resolveRepository(cwd))?.path).toBe('example/package')
 })
 
-test('falls back to the Git origin', async () => {
+it('falls back to the Git origin', async () => {
   const cwd = await createRepository()
   await command(
     cwd,

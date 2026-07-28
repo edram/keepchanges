@@ -12,7 +12,7 @@ export interface Commit extends RepositoryCommit {
   isBreaking: boolean
 }
 
-export async function git(cwd: string, ...args: string[]) {
+export async function git(cwd: string, ...args: string[]): Promise<string> {
   const result = await x('git', args, {
     nodeOptions: { cwd },
   })
@@ -24,7 +24,7 @@ export async function git(cwd: string, ...args: string[]) {
   return result.stdout
 }
 
-export async function getLatestTag(cwd: string) {
+export async function getLatestTag(cwd: string): Promise<string> {
   const result = await x(
     'git',
     ['describe', '--tags', '--abbrev=0'],
@@ -33,7 +33,10 @@ export async function getLatestTag(cwd: string) {
   return result.stdout.trim()
 }
 
-export async function getTagCommit(cwd: string, tag: string) {
+export async function getTagCommit(
+  cwd: string,
+  tag: string,
+): Promise<string | undefined> {
   return git(cwd, 'rev-list', '-n', '1', tag)
     .then(output => output.trim() || undefined)
     .catch(() => undefined)
@@ -43,7 +46,7 @@ export async function getPreviousTag(
   cwd: string,
   tag: string,
   releaseRef: string,
-) {
+): Promise<string> {
   if (!tag.includes('-')) {
     const tags = await git(
       cwd,
@@ -67,7 +70,10 @@ export async function getPreviousTag(
     .catch(() => '')
 }
 
-export async function getRemoteTagCommit(cwd: string, tag: string) {
+export async function getRemoteTagCommit(
+  cwd: string,
+  tag: string,
+): Promise<string | undefined> {
   const output = await git(
     cwd,
     'ls-remote',
@@ -81,7 +87,11 @@ export async function getRemoteTagCommit(cwd: string, tag: string) {
   return (peeled || refs[0])?.split(/\s+/)[0]
 }
 
-export async function readCommits(cwd: string, from: string, to: string) {
+export async function readCommits(
+  cwd: string,
+  from: string,
+  to: string,
+): Promise<Commit[]> {
   const log = await git(
     cwd,
     'log',
@@ -99,7 +109,12 @@ export async function readCommits(cwd: string, from: string, to: string) {
     .filter(commit => commit !== null)
 }
 
-function parseGitLog(log: string) {
+function parseGitLog(log: string): Array<{
+  hash: string
+  subject: string
+  body: string
+  author: RepositoryAuthor
+}> {
   const fields = log.split('\0')
   const commits: Array<{
     hash: string
@@ -145,7 +160,7 @@ export function parseCommit(
   ]
   const authors = [author]
   for (const coAuthor of body.matchAll(
-    /^Co-Authored-By:\s*(.+?)\s*<([^>]+)>$/gim,
+    /^Co-Authored-By:([^<\r\n]+)<([^>\r\n]+)>[^\S\r\n]*$/gim,
   )) {
     const email = coAuthor[2].trim()
     if (!authors.some(author => author.email === email)) {

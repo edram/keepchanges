@@ -1,10 +1,11 @@
+import type { Output } from 'tinyexec'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { x } from 'tinyexec'
 import { onTestFinished } from 'vitest'
 
-export async function createRepository(prefix = 'changelog-') {
+export async function createRepository(prefix = 'changelog-'): Promise<string> {
   let cwd: string | undefined
   onTestFinished(async () => {
     if (cwd)
@@ -22,7 +23,9 @@ export async function createRepository(prefix = 'changelog-') {
   return cwd
 }
 
-export async function createBareRepository(prefix = 'changelog-remote-') {
+export async function createBareRepository(
+  prefix = 'changelog-remote-',
+): Promise<string> {
   let cwd: string | undefined
   onTestFinished(async () => {
     if (cwd)
@@ -34,7 +37,10 @@ export async function createBareRepository(prefix = 'changelog-remote-') {
   return cwd
 }
 
-export async function addPackage(cwd: string, repository?: string) {
+export async function addPackage(
+  cwd: string,
+  repository?: string,
+): Promise<void> {
   await writeFile(
     join(cwd, 'package.json'),
     `${JSON.stringify({
@@ -47,13 +53,21 @@ export async function addPackage(cwd: string, repository?: string) {
   await command(cwd, 'git', 'commit', '-m', 'chore: add package')
 }
 
-export async function commit(cwd: string, message: string, body?: string) {
+export async function commit(
+  cwd: string,
+  message: string,
+  body?: string,
+): Promise<void> {
   await writeFile(join(cwd, 'file.txt'), message)
   await command(cwd, 'git', 'add', 'file.txt')
   await command(cwd, 'git', 'commit', '-m', message, ...(body ? ['-m', body] : []))
 }
 
-export async function command(cwd: string, executable: string, ...args: string[]) {
+export async function command(
+  cwd: string,
+  executable: string,
+  ...args: string[]
+): Promise<Output> {
   return x(executable, args, {
     nodeOptions: { cwd },
     throwOnError: true,

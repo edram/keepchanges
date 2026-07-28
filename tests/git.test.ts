@@ -1,5 +1,5 @@
 import type { RepositoryAuthor } from '../src/provider'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { git, parseCommit, readCommits } from '../src/git'
 import { command, createRepository } from './git'
 
@@ -9,7 +9,7 @@ const author: RepositoryAuthor = {
 }
 
 describe('parseCommit', () => {
-  test('parses a conventional commit', () => {
+  it('parses a conventional commit', () => {
     expect(parseCommit(
       '1234567',
       'feat(parser): handle separators',
@@ -26,7 +26,7 @@ describe('parseCommit', () => {
     })
   })
 
-  test('extracts pull requests from squash commit subjects', () => {
+  it('extracts pull requests from squash commit subjects', () => {
     expect(parseCommit(
       '1234567',
       'feat: add CLI (#123)',
@@ -38,11 +38,11 @@ describe('parseCommit', () => {
     })
   })
 
-  test('ignores a non-conventional commit', () => {
+  it('ignores a non-conventional commit', () => {
     expect(parseCommit('1234567', 'Update readme', '', author)).toBeNull()
   })
 
-  test.each([
+  it.each([
     ['feat!: remove the legacy API', ''],
     [
       'fix: change the configuration format',
@@ -56,7 +56,7 @@ describe('parseCommit', () => {
     expect(parseCommit('1234567', subject, body, author)?.isBreaking).toBe(true)
   })
 
-  test('collects unique co-authors', () => {
+  it('collects unique co-authors', () => {
     const result = parseCommit(
       '1234567',
       'fix: support pairs',
@@ -73,7 +73,7 @@ describe('parseCommit', () => {
     ])
   })
 
-  test('excludes bot participants', () => {
+  it('excludes bot participants', () => {
     const result = parseCommit(
       '1234567',
       'fix: update dependencies',
@@ -89,7 +89,7 @@ describe('parseCommit', () => {
   })
 })
 
-test('reads conventional commits from a Git range', async () => {
+it('reads conventional commits from a Git range', async () => {
   const cwd = await createRepository()
 
   const commits = await readCommits(cwd, 'v1.0.0', 'HEAD')
@@ -107,7 +107,7 @@ test('reads conventional commits from a Git range', async () => {
   ])
 })
 
-test('reports Git stderr when a command fails', async () => {
+it('reports Git stderr when a command fails', async () => {
   const cwd = await createRepository()
   await command(cwd, 'git', 'config', 'user.name', '')
   await command(cwd, 'git', 'config', 'user.email', '')

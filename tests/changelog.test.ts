@@ -1,5 +1,5 @@
 import type { Commit } from '../src/git'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   createChangelog,
   hasRelease,
@@ -21,7 +21,7 @@ function commit(overrides: Partial<Commit> = {}): Commit {
 }
 
 describe('createChangelog', () => {
-  test('groups conventional commits by release section', () => {
+  it('groups conventional commits by release section', () => {
     const { release } = createChangelog(
       '2.0.0',
       [
@@ -59,7 +59,7 @@ describe('createChangelog', () => {
     ].join('\n'))
   })
 
-  test('renders scopes, participants, and HTML safely', () => {
+  it('renders scopes, participants, and HTML safely', () => {
     const { body } = createChangelog(
       '1.1.0',
       [
@@ -85,7 +85,7 @@ describe('createChangelog', () => {
     )
   })
 
-  test('links commits and the comparison when a repository is available', () => {
+  it('links commits and the comparison when a repository is available', () => {
     const repository = githubProvider.parse(
       'git@github.com:example/project.git',
     )!
@@ -111,13 +111,13 @@ describe('createChangelog', () => {
 describe('insertRelease', () => {
   const release = '## v1.1.0\n\n- Current release\n'
 
-  test('appends the first release after the changelog preamble', () => {
+  it('appends the first release after the changelog preamble', () => {
     expect(insertRelease('# Changelog\n', release)).toBe(
       '# Changelog\n\n## v1.1.0\n\n- Current release\n',
     )
   })
 
-  test('inserts a release before existing history', () => {
+  it('inserts a release before existing history', () => {
     const changelog = [
       '# Changelog',
       '',
@@ -145,7 +145,7 @@ describe('insertRelease', () => {
     ].join('\n'))
   })
 
-  test('replaces the same normalized release version', () => {
+  it('replaces the same normalized release version', () => {
     const changelog = [
       '# Changelog',
       '',
@@ -166,7 +166,7 @@ describe('insertRelease', () => {
     expect(result).toContain('## v1.0.0')
   })
 
-  test('keeps prerelease and stable versions distinct', () => {
+  it('keeps prerelease and stable versions distinct', () => {
     const changelog = '# Changelog\n\n## v1.1.0-beta.1\n\n- Beta release\n'
 
     const result = insertRelease(changelog, release)
@@ -176,7 +176,7 @@ describe('insertRelease', () => {
   })
 })
 
-test('recognizes release headings with or without a v prefix', () => {
+it('recognizes release headings with or without a v prefix', () => {
   expect(hasRelease('# Changelog\n\n## 1.1.0\n', 'v1.1.0')).toBe(true)
   expect(hasRelease('# Changelog\n\n## v1.1.0-beta.1\n', '1.1.0')).toBe(false)
 })

@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import { runCli } from '../src/cli'
 
 const { runChangelog } = vi.hoisted(() => ({
@@ -12,7 +12,7 @@ beforeEach(() => {
   runChangelog.mockResolvedValue(undefined)
 })
 
-test('maps CLI arguments to changelog options', async () => {
+it('maps CLI arguments to changelog options', async () => {
   await runCli(
     [
       'v1.1.0',
@@ -44,7 +44,7 @@ test('maps CLI arguments to changelog options', async () => {
   )
 })
 
-test('requires a release version before executing', async () => {
+it('requires a release version before executing', async () => {
   await expect(
     runCli([], { cwd: '/project' }),
   ).rejects.toThrow('A release version is required')

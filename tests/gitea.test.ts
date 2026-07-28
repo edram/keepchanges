@@ -1,8 +1,8 @@
 import type { RepositoryCommit } from '../src/provider'
-import { expect, test, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { giteaProvider } from '../src/providers/gitea'
 
-test('resolves a Gitea commit author with GITEA_TOKEN', async () => {
+it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
   const repository = giteaProvider.parse(
     'http://10.102.248.21/edram/keepchanges.git',
   )!

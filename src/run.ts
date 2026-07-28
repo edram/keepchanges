@@ -45,7 +45,7 @@ export interface ChangelogOptions {
 export async function runChangelog(
   options: ChangelogOptions,
   environment: CliEnvironment,
-) {
+): Promise<void> {
   const { version } = options
   const tag = `v${version}`
   const gitIdentity = options.commit || options.release
@@ -143,7 +143,7 @@ export async function runChangelog(
     body: releaseBody,
     prerelease: version.includes('-'),
   }
-  const printReleasePreview = () => {
+  const printReleasePreview = (): void => {
     stdout([
       colors.dim(`keep${colors.bold('changes')} v${packageVersion}`),
       `${colors.cyan(from || comparisonFrom)}${colors.dim(' -> ')}${colors.blue(tag)}${colors.dim(` (${commits.length} commits)`)}`,
@@ -155,7 +155,7 @@ export async function runChangelog(
       '',
     ].join('\n'))
   }
-  const printManualReleaseUrl = () => {
+  const printManualReleaseUrl = (): string | undefined => {
     const url = repository!.provider.manualReleaseUrl?.(
       repository!,
       repositoryRelease,
@@ -167,7 +167,7 @@ export async function runChangelog(
     }
     return url
   }
-  const publishRepositoryRelease = async () => {
+  const publishRepositoryRelease = async (): Promise<void> => {
     printReleasePreview()
     if (!token || !repository!.provider.publishRelease) {
       if (!repository!.provider.manualReleaseUrl)
@@ -282,12 +282,12 @@ export async function runChangelog(
   }
 }
 
-function capitalize(value: string) {
+function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-function resolveGitIdentity(author = defaultAuthor) {
-  const match = /^(.+?)\s*<([^<>]+)>$/.exec(author)
+function resolveGitIdentity(author = defaultAuthor): string[] {
+  const match = /^([^<>\r\n]+)<([^<>\r\n]+)>$/.exec(author)
   if (!match)
     throw new Error('Author must use the "Name <email>" format')
 

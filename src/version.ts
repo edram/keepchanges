@@ -3,7 +3,10 @@ import { npmVersionProvider } from './versions/npm'
 
 const providers: VersionProvider[] = [npmVersionProvider]
 
-export async function updateVersion(cwd: string, version: string) {
+export async function updateVersion(
+  cwd: string,
+  version: string,
+): Promise<string | undefined> {
   for (const provider of providers) {
     const path = await provider.update(cwd, version)
     if (path)

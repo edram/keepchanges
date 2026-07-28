@@ -90,8 +90,8 @@ export const githubProvider: RepositoryProvider = {
 
   async publishRelease(repository, release, token, fetch) {
     const headers = {
-      accept: 'application/vnd.github+json',
-      authorization: `Bearer ${token}`,
+      'accept': 'application/vnd.github+json',
+      'authorization': `Bearer ${token}`,
       'content-type': 'application/json',
     }
     const releasesUrl

@@ -2,6 +2,7 @@
   "name": "keepchanges",
   "type": "module",
   "version": "0.0.2",
+  "packageManager": "pnpm@11.15.1",
   "description": "Generate and maintain CHANGELOG.md from Conventional Commits.",
   "author": "edram",
   "license": "MIT",
@@ -13,13 +14,19 @@
   "bugs": {
     "url": "https://github.com/edram/keepchanges/issues"
   },
-  "bin": {
-    "changelog": "./dist/cli.mjs"
-  },
+  "keywords": [
+    "changelog",
+    "cli",
+    "conventional-commits",
+    "git"
+  ],
   "exports": {
     ".": "./dist/cli.mjs",
     "./cli": "./dist/cli.mjs",
     "./package.json": "./package.json"
+  },
+  "bin": {
+    "changelog": "./dist/cli.mjs"
   },
   "files": [
     "dist"
@@ -27,32 +34,29 @@
   "engines": {
     "node": ">=20.19.0"
   },
-  "keywords": [
-    "changelog",
-    "cli",
-    "conventional-commits",
-    "git"
-  ],
-  "packageManager": "pnpm@11.15.1",
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "test": "pnpm run build && vitest run",
     "typecheck": "tsc --noEmit",
     "release": "bumpp",
     "prepublishOnly": "pnpm run typecheck && pnpm run test"
-  },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "bumpp": "^11.1.0",
-    "tsdown": "^0.22.5",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
   },
   "dependencies": {
     "ansis": "^4.3.1",
     "cac": "^7.0.0",
     "tinyexec": "^1.2.4",
     "verkit": "^0.3.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.2.0",
+    "@types/node": "^26.1.1",
+    "bumpp": "^11.1.0",
+    "eslint": "^10.7.0",
+    "tsdown": "^0.22.5",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

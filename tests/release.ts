@@ -11,7 +11,10 @@ export interface GitHubRequest {
   body?: Record<string, unknown>
 }
 
-export async function createReleaseRepository() {
+export async function createReleaseRepository(): Promise<{
+  cwd: string
+  remote: string
+}> {
   const cwd = await createRepository()
   const remote = await createBareRepository()
   await command(cwd, 'git', 'remote', 'add', 'origin', remote)
