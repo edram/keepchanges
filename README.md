@@ -111,8 +111,8 @@ GitHub 地址会被自动识别。自托管 Gitea 需要在 `package.json` 中�
 ```
 
 识别到仓库后，每条记录会包含 commit 和 PR 链接，末尾会包含版本对比链接。
-GitHub 支持作者解析和 Release 发布；Gitea 支持 changelog 链接，并可通过
-`GITEA_TOKEN` 解析 commit 主作者，当前不支持 Release 发布。
+GitHub 和 Gitea 均支持作者解析和 Release 发布；Gitea 使用 `GITEA_TOKEN`
+解析 commit 主作者并发布 Release。
 
 默认使用 Git 提交中的作者名，并将 `Co-Authored-By` 参与者一起写入记录，bot
 账号会被忽略。提供对应平台的 token 后，会尝试将邮箱解析为用户名。
@@ -251,10 +251,9 @@ must be declared explicitly in `package.json`:
 ```
 
 When a repository is detected, entries include commit and pull request links,
-and the release ends with a version comparison link. GitHub supports author
-resolution and Release publishing. Gitea supports changelog links and resolves
-primary commit authors with `GITEA_TOKEN`, but does not currently publish
-Releases.
+and the release ends with a version comparison link. GitHub and Gitea both
+support author resolution and Release publishing. Gitea uses `GITEA_TOKEN` to
+resolve primary commit authors and publish Releases.
 
 Entries use Git author names by default and include `Co-Authored-By`
 participants. Bot accounts are omitted. With the corresponding provider token,
