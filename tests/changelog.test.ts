@@ -36,6 +36,11 @@ describe('createChangelog', () => {
           description: 'remove the legacy API',
           isBreaking: true,
         }),
+        commit({
+          hash: '4567890',
+          type: 'perf',
+          description: 'speed up changelog generation',
+        }),
       ],
       undefined,
       '',
@@ -55,6 +60,10 @@ describe('createChangelog', () => {
       '### 🐞 Bug Fixes',
       '',
       '- Handle invalid input &nbsp;-&nbsp; by **Test Author**',
+      '',
+      '### 🏎 Performance',
+      '',
+      '- Speed up changelog generation &nbsp;-&nbsp; by **Test Author**',
       '',
     ].join('\n'))
   })

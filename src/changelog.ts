@@ -25,6 +25,11 @@ export function createChangelog(
       '🐞 Bug Fixes',
       repository,
     ),
+    ...renderSection(
+      commits.filter(commit => !commit.isBreaking && commit.type === 'perf'),
+      '🏎 Performance',
+      repository,
+    ),
     ...(repository && comparisonFrom
       ? [
           '',
