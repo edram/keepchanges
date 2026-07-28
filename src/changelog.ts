@@ -94,9 +94,8 @@ function renderSection(
   title: string,
   repository: Repository | undefined,
 ): string[] {
-  const lines = commits
+  const renderedCommits = commits
     .map((commit) => {
-      const scope = commit.scope ? `**${escapeHtml(commit.scope)}**: ` : ''
       const reference = repository
         ? `[<samp>(${commit.hash.slice(0, 5)})</samp>](${repository.provider.commitUrl(repository, commit.hash)})`
         : ''
@@ -119,18 +118,42 @@ function renderSection(
         .filter(Boolean)
         .join(' ')
       const suffix = details ? ` &nbsp;-&nbsp; ${details}` : ''
-      return `${scope}${escapeHtml(capitalize(commit.description))}${suffix}`
+      return {
+        scope: commit.scope,
+        line: `${escapeHtml(capitalize(commit.description))}${suffix}`,
+      }
     })
-    .reverse()
 
-  if (!lines.length)
+  if (!renderedCommits.length)
     return []
+
+  const commitsByScope = new Map<string, string[]>()
+  for (const { scope, line } of renderedCommits) {
+    const lines = commitsByScope.get(scope) || []
+    lines.push(line)
+    commitsByScope.set(scope, lines)
+  }
+  const groupByScope = [...commitsByScope]
+    .some(([scope, lines]) => Boolean(scope) && lines.length > 1)
+  const lines = groupByScope
+    ? [...commitsByScope.keys()].sort().flatMap((scope) => {
+        const scopedLines = (commitsByScope.get(scope) || [])
+          .reverse()
+          .map(line => `${scope ? '  ' : ''}- ${line}`)
+        return scope
+          ? [`- **${escapeHtml(scope)}**:`, ...scopedLines]
+          : scopedLines
+      })
+    : renderedCommits.reverse().map(({ scope, line }) => {
+        const prefix = scope ? `**${escapeHtml(scope)}**: ` : ''
+        return `- ${prefix}${line}`
+      })
 
   return [
     '',
     `### ${title}`,
     '',
-    ...lines.map(line => `- ${line}`),
+    ...lines,
   ]
 }
 

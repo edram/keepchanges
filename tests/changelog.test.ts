@@ -85,6 +85,33 @@ describe('createChangelog', () => {
     )
   })
 
+  it('groups commits by scope when a scope contains multiple entries', () => {
+    const { body } = createChangelog(
+      '1.1.0',
+      [
+        commit({ scope: 'gitea', description: 'third' }),
+        commit({ scope: 'cli', description: 'configure output' }),
+        commit({ description: 'second' }),
+        commit({ scope: 'gitea', description: 'publish releases' }),
+        commit({ description: 'first' }),
+      ],
+      undefined,
+      '',
+    )
+
+    expect(body).toBe([
+      '### 🚀 Features',
+      '',
+      '- First &nbsp;-&nbsp; by **Test Author**',
+      '- Second &nbsp;-&nbsp; by **Test Author**',
+      '- **cli**:',
+      '  - Configure output &nbsp;-&nbsp; by **Test Author**',
+      '- **gitea**:',
+      '  - Publish releases &nbsp;-&nbsp; by **Test Author**',
+      '  - Third &nbsp;-&nbsp; by **Test Author**',
+    ].join('\n'))
+  })
+
   it('links commits and the comparison when a repository is available', () => {
     const repository = githubProvider.parse(
       'git@github.com:example/project.git',
