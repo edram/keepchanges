@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "coding": {
+      "source": "edram/skills",
+      "sourceType": "github",
+      "skillPath": "skills/coding/SKILL.md",
+      "computedHash": "b72bcf9d026afbdbe8e1ae2fcbf4b59e18662afb7aebbe9e19f09d699f881752"
+    },
+    "git-commit-convention": {
+      "source": "edram/skills",
+      "sourceType": "github",
+      "skillPath": "skills/git-commit-convention/SKILL.md",
+      "computedHash": "9c18c572ccc47dad954e4541c6683d857b761a4049df267bfc469d4aeffbb59b"
+    },
+    "tdd": {
+      "source": "edram/skills",
+      "sourceType": "github",
+      "skillPath": "skills/tdd/SKILL.md",
+      "computedHash": "80e8728cbd8a538ee2fa2b9b68ab10163c54b344f540d147f1b011ff6148847e"
+    }
+  }
+}
