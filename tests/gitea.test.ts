@@ -1,19 +1,31 @@
 import type {
   RepositoryCommit,
   RepositoryRelease,
-} from '../src/provider'
+} from '../src/repository'
 import { expect, it, vi } from 'vitest'
-import { giteaProvider } from '../src/providers/gitea'
+import { giteaRepository } from '../src/repositories/gitea'
 
-const repository = giteaProvider.parse(
-  'http://10.102.248.21/edram/keepchanges.git',
+const repository = giteaRepository.parse(
+  'https://gitea.example.com/edram/keepchanges.git',
 )!
 const release: RepositoryRelease = {
   tag: 'v1.1.0',
   name: 'v1.1.0',
   body: '### Features\n\n- Add CLI',
   prerelease: false,
+  draft: false,
 }
+
+it('creates a manual release URL for the selected tag', () => {
+  const url = new URL(giteaRepository.manualReleaseUrl!(repository, release))
+
+  expect(`${url.origin}${url.pathname}`).toBe(
+    'https://gitea.example.com/edram/keepchanges/releases/new',
+  )
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    tag: 'v1.1.0',
+  })
+})
 
 it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
   const commits: RepositoryCommit[] = [{
@@ -23,12 +35,12 @@ it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
   const fetch = vi.fn<typeof globalThis.fetch>(
     async () => Response.json({ author: { login: 'edram' } }),
   )
-  const token = giteaProvider.token(
+  const token = giteaRepository.token(
     undefined,
     { GITEA_TOKEN: 'secret' },
   )!
 
-  await giteaProvider.resolveAuthors!(
+  await giteaRepository.resolveAuthors!(
     commits,
     repository,
     token,
@@ -36,7 +48,7 @@ it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
   )
 
   expect(fetch).toHaveBeenCalledWith(
-    'http://10.102.248.21/api/v1/repos/edram/keepchanges/git/commits/1234567',
+    'https://gitea.example.com/api/v1/repos/edram/keepchanges/git/commits/1234567',
     {
       headers: {
         accept: 'application/json',
@@ -55,11 +67,11 @@ it('creates a Gitea release when the tag has not been published', async () => {
     if (url.endsWith('/releases/tags/v1.1.0'))
       return new Response(null, { status: 404 })
     return Response.json({
-      html_url: 'http://10.102.248.21/edram/keepchanges/releases/tag/v1.1.0',
+      html_url: 'https://gitea.example.com/edram/keepchanges/releases/tag/v1.1.0',
     })
   })
 
-  const result = await giteaProvider.publishRelease!(
+  const result = await giteaRepository.publishRelease!(
     repository,
     release,
     'secret',
@@ -68,10 +80,10 @@ it('creates a Gitea release when the tag has not been published', async () => {
 
   expect(result).toEqual({
     action: 'created',
-    url: 'http://10.102.248.21/edram/keepchanges/releases/tag/v1.1.0',
+    url: 'https://gitea.example.com/edram/keepchanges/releases/tag/v1.1.0',
   })
   expect(requests[1]).toMatchObject({
-    url: 'http://10.102.248.21/api/v1/repos/edram/keepchanges/releases',
+    url: 'https://gitea.example.com/api/v1/repos/edram/keepchanges/releases',
     init: {
       method: 'POST',
       headers: {
@@ -84,6 +96,7 @@ it('creates a Gitea release when the tag has not been published', async () => {
     name: 'v1.1.0',
     body: release.body,
     prerelease: false,
+    draft: false,
   })
 })
 
@@ -95,11 +108,11 @@ it('updates the Gitea release already associated with the tag', async () => {
     if (url.endsWith('/releases/tags/v1.1.0'))
       return Response.json({ id: 42 })
     return Response.json({
-      html_url: 'http://10.102.248.21/edram/keepchanges/releases/tag/v1.1.0',
+      html_url: 'https://gitea.example.com/edram/keepchanges/releases/tag/v1.1.0',
     })
   })
 
-  const result = await giteaProvider.publishRelease!(
+  const result = await giteaRepository.publishRelease!(
     repository,
     release,
     'secret',
@@ -108,7 +121,7 @@ it('updates the Gitea release already associated with the tag', async () => {
 
   expect(result.action).toBe('updated')
   expect(requests[1]).toEqual({
-    url: 'http://10.102.248.21/api/v1/repos/edram/keepchanges/releases/42',
+    url: 'https://gitea.example.com/api/v1/repos/edram/keepchanges/releases/42',
     method: 'PATCH',
   })
 })
@@ -117,7 +130,7 @@ it('reports a failed Gitea release lookup', async () => {
   const fetch = vi.fn<typeof globalThis.fetch>(async () =>
     new Response(null, { status: 500 }))
 
-  await expect(giteaProvider.publishRelease!(
+  await expect(giteaRepository.publishRelease!(
     repository,
     release,
     'secret',
@@ -133,7 +146,7 @@ it('reports a failed Gitea release request', async () => {
       ? new Response(null, { status: 404 })
       : Response.json({}, { status: 422 }))
 
-  await expect(giteaProvider.publishRelease!(
+  await expect(giteaRepository.publishRelease!(
     repository,
     release,
     'secret',

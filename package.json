@@ -21,12 +21,11 @@
     "git"
   ],
   "exports": {
-    ".": "./dist/cli.mjs",
-    "./cli": "./dist/cli.mjs",
+    ".": "./dist/index.mjs",
     "./package.json": "./package.json"
   },
   "bin": {
-    "changelog": "./dist/cli.mjs"
+    "keepchanges": "./dist/cli.mjs"
   },
   "files": [
     "dist"

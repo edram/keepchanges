@@ -1,11 +1,13 @@
-import type { Commit } from '../src/git'
+import type { Commit } from '../src/commit'
+import type { ChangelogConfigOverrides } from '../src/config'
+import type { Repository } from '../src/repository'
 import { describe, expect, it } from 'vitest'
 import {
-  createChangelog,
+  generateChangelog,
   hasRelease,
   insertRelease,
 } from '../src/changelog'
-import { githubProvider } from '../src/providers/github'
+import { githubRepository } from '../src/repositories/github'
 
 function commit(overrides: Partial<Commit> = {}): Commit {
   return {
@@ -20,9 +22,24 @@ function commit(overrides: Partial<Commit> = {}): Commit {
   }
 }
 
-describe('createChangelog', () => {
+function changelog(
+  version: string,
+  commits: Commit[],
+  repository?: Repository,
+  comparisonFrom = '',
+  config: ChangelogConfigOverrides = {},
+) {
+  return generateChangelog({
+    version,
+    commits,
+    repository,
+    comparisonFrom,
+  }, config)
+}
+
+describe('generateChangelog', () => {
   it('groups conventional commits by release section', () => {
-    const { release } = createChangelog(
+    const { release } = changelog(
       '2.0.0',
       [
         commit(),
@@ -69,7 +86,7 @@ describe('createChangelog', () => {
   })
 
   it('renders scopes, participants, and HTML safely', () => {
-    const { body } = createChangelog(
+    const { body } = changelog(
       '1.1.0',
       [
         commit({
@@ -95,7 +112,7 @@ describe('createChangelog', () => {
   })
 
   it('groups commits by scope when a scope contains multiple entries', () => {
-    const { body } = createChangelog(
+    const { body } = changelog(
       '1.1.0',
       [
         commit({ scope: 'gitea', description: 'third' }),
@@ -122,10 +139,10 @@ describe('createChangelog', () => {
   })
 
   it('links commits and the comparison when a repository is available', () => {
-    const repository = githubProvider.parse(
+    const repository = githubRepository.parse(
       'git@github.com:example/project.git',
     )!
-    const { body } = createChangelog(
+    const { body } = changelog(
       '1.1.0',
       [commit({ pullRequests: ['#123'] })],
       repository,
@@ -144,7 +161,7 @@ describe('createChangelog', () => {
   })
 
   it('renders a fallback when there are no significant changes', () => {
-    const { body } = createChangelog(
+    const { body } = changelog(
       '1.1.0',
       [commit({ type: 'chore' })],
       undefined,
@@ -152,6 +169,67 @@ describe('createChangelog', () => {
     )
 
     expect(body).toBe('*No significant changes*')
+  })
+
+  it('applies changelog style overrides', () => {
+    const { body } = changelog(
+      '1.1.0',
+      [
+        commit({ scope: 'cli', description: 'second' }),
+        commit({ scope: 'cli', description: 'first' }),
+      ],
+      undefined,
+      '',
+      {
+        emoji: false,
+        capitalize: false,
+        group: false,
+      },
+    )
+
+    expect(body).toBe([
+      '### Features',
+      '',
+      '- **cli**: first &nbsp;-&nbsp; by **Test Author**',
+      '- **cli**: second &nbsp;-&nbsp; by **Test Author**',
+    ].join('\n'))
+  })
+
+  it('supports custom sections', () => {
+    const { body } = changelog(
+      '1.1.0',
+      [commit({ type: 'docs' })],
+      undefined,
+      '',
+      {
+        types: {
+          docs: { emoji: '📚', title: 'Documentation' },
+        },
+      },
+    )
+
+    expect(body).toContain('### 📚 Documentation')
+  })
+
+  it('supports custom fallback and comparison messages', () => {
+    const repository = githubRepository.parse(
+      'https://github.com/example/project',
+    )!
+    const { body } = changelog(
+      '1.1.0',
+      [commit({ type: 'chore' })],
+      repository,
+      'v1.0.0',
+      {
+        messages: {
+          noSignificantChanges: 'Nothing noteworthy',
+          viewChanges: 'Compare on {provider}',
+        },
+      },
+    )
+
+    expect(body).toContain('*Nothing noteworthy*')
+    expect(body).toContain('[Compare on GitHub]')
   })
 })
 

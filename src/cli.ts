@@ -1,57 +1,42 @@
 #!/usr/bin/env node
 
-import type { CliEnvironment } from './run'
-import { realpathSync } from 'node:fs'
+import type { Options } from './cli/options'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 import { cac } from 'cac'
 import { version } from '../package.json'
-import { runChangelog } from './run'
+import { createChanges } from './cli/createChanges'
+import { resolveOptions } from './cli/options'
 
-export type { CliEnvironment } from './run'
+const cli = cac('keepchanges')
+  .option('--from <ref>', 'Start Git reference')
+  .option('--to <ref>', 'End Git reference')
+  .option('--repository <source>', 'Repository slug or URL')
+  .option('--output <path>', 'Changelog file path')
+  .option('--dry', 'Preview without modifying files or remotes')
+  .option('--commit', 'Commit the changelog and version update')
+  .option('--release', 'Publish a repository release')
+  .option('--author <author>', 'Commit author in "Name <email>" format')
+  .option('-t, --token <token>', 'Repository token')
+  .option('--name <name>', 'Repository release name')
+  .option('-d, --draft', 'Create a draft repository release')
+  .option('--prerelease', 'Mark the repository release as prerelease')
+  .option('--emoji', 'Use emojis in changelog section titles')
+  .option('--capitalize', 'Capitalize changelog entries')
+  .option('--group', 'Group repeated commit scopes')
 
-export async function runCli(
-  args: string[],
-  environment: CliEnvironment,
-): Promise<void> {
-  const cli = cac('changelog')
-    .version(version)
-    .option('--output <path>', 'Changelog file path')
-    .option('--dry', 'Print the changelog without writing it')
-    .option('--commit', 'Commit the changelog')
-    .option('--release', 'Publish a repository release')
-    .option('--author <author>', 'Commit author in "Name <email>" format')
-    .option('--token <token>', 'Repository token for resolving authors')
-    .help()
-
-  cli
-    .command('[version]')
-    .usage('<version> [options]')
-    .action(async (versionArgument, options) => {
-      if (!versionArgument)
-        throw new Error('A release version is required')
-
-      await runChangelog({
-        version: versionArgument.replace(/^v/, ''),
-        output: options.output,
-        dry: options.dry,
-        commit: options.commit,
-        release: options.release,
-        author: options.author,
-        token: options.token,
-      }, environment)
-    })
-
-  cli.parse(['node', 'changelog', ...args], { run: false })
-  await cli.runMatchedCommand()
-}
-
-if (
-  process.argv[1]
-  && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])
-) {
-  runCli(process.argv.slice(2), { cwd: process.cwd() }).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error))
-    process.exitCode = 1
+cli
+  .command('[version]')
+  .usage('<version> [options]')
+  .action(async (
+    versionArgument,
+    options: Partial<Omit<Options, 'version'>>,
+  ) => {
+    await createChanges(
+      resolveOptions(versionArgument, options),
+      { cwd: process.cwd() },
+    )
   })
-}
+
+cli.help()
+cli.version(version)
+cli.parse()

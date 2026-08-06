@@ -1,4 +1,4 @@
-import type { VersionProvider } from '../version-provider'
+import type { VersionProvider } from '../version'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 

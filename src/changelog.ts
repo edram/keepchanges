@@ -1,49 +1,64 @@
-import type { Commit } from './git'
-import type { Repository } from './provider'
+import type { Commit } from './commit'
+import type {
+  ChangelogConfig,
+  ChangelogConfigOverrides,
+  ChangelogSectionConfig,
+} from './config'
+import type { Repository } from './repository'
 import { readFile, writeFile } from 'node:fs/promises'
 import { normalizeFull } from 'verkit'
+import { resolveChangelogConfig } from './config'
 
-export function createChangelog(
-  version: string,
-  commits: Commit[],
-  repository: Repository | undefined,
-  comparisonFrom: string,
-): { body: string, release: string } {
+export interface GenerateChangelogOptions {
+  version: string
+  commits: Commit[]
+  repository?: Repository
+  comparisonFrom?: string
+}
+
+export interface GeneratedChangelog {
+  body: string
+  release: string
+}
+
+export function generateChangelog(
+  options: GenerateChangelogOptions,
+  overrides: ChangelogConfigOverrides = {},
+): GeneratedChangelog {
+  const config = resolveChangelogConfig(overrides)
   const changes = [
     ...renderSection(
-      commits.filter(commit => commit.isBreaking),
-      '🚨 Breaking Changes',
-      repository,
+      options.commits.filter(commit => commit.isBreaking),
+      config.breakingChanges,
+      config,
+      options.repository,
     ),
-    ...renderSection(
-      commits.filter(commit => !commit.isBreaking && commit.type === 'feat'),
-      '🚀 Features',
-      repository,
-    ),
-    ...renderSection(
-      commits.filter(commit => !commit.isBreaking && commit.type === 'fix'),
-      '🐞 Bug Fixes',
-      repository,
-    ),
-    ...renderSection(
-      commits.filter(commit => !commit.isBreaking && commit.type === 'perf'),
-      '🏎 Performance',
-      repository,
+    ...Object.entries(config.types).flatMap(([type, section]) =>
+      renderSection(
+        options.commits.filter(
+          commit => !commit.isBreaking && commit.type === type,
+        ),
+        section,
+        config,
+        options.repository,
+      ),
     ),
   ]
   const body = [
-    ...(changes.length ? changes : ['*No significant changes*']),
-    ...(repository && comparisonFrom
+    ...(changes.length
+      ? changes
+      : [`*${config.messages.noSignificantChanges}*`]),
+    ...(options.repository && options.comparisonFrom
       ? [
           '',
-          `##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on ${repository.provider.name}](${repository.provider.compareUrl(repository, comparisonFrom, `v${version}`)})`,
+          `##### &nbsp;&nbsp;&nbsp;&nbsp;[${config.messages.viewChanges.replace('{provider}', options.repository.provider.name)}](${options.repository.provider.compareUrl(options.repository, options.comparisonFrom, `v${options.version}`)})`,
         ]
       : []),
   ].join('\n').trim()
 
   return {
     body,
-    release: [`## v${version}`, '', body, ''].join('\n'),
+    release: [`## v${options.version}`, '', body, ''].join('\n'),
   }
 }
 
@@ -99,7 +114,8 @@ function releaseHeadings(changelog: string): Array<{ index: number, version: str
 
 function renderSection(
   commits: Commit[],
-  title: string,
+  section: ChangelogSectionConfig,
+  config: ChangelogConfig,
   repository: Repository | undefined,
 ): string[] {
   const renderedCommits = commits
@@ -125,10 +141,13 @@ function renderSection(
       ]
         .filter(Boolean)
         .join(' ')
+      const description = config.capitalize
+        ? capitalize(commit.description)
+        : commit.description
       const suffix = details ? ` &nbsp;-&nbsp; ${details}` : ''
       return {
         scope: commit.scope,
-        line: `${escapeHtml(capitalize(commit.description))}${suffix}`,
+        line: `${escapeHtml(description)}${suffix}`,
       }
     })
 
@@ -141,7 +160,7 @@ function renderSection(
     lines.push(line)
     commitsByScope.set(scope, lines)
   }
-  const groupByScope = [...commitsByScope]
+  const groupByScope = config.group && [...commitsByScope]
     .some(([scope, lines]) => Boolean(scope) && lines.length > 1)
   const lines = groupByScope
     ? [...commitsByScope.keys()].sort().flatMap((scope) => {
@@ -156,6 +175,9 @@ function renderSection(
         const prefix = scope ? `**${escapeHtml(scope)}**: ` : ''
         return `- ${prefix}${line}`
       })
+  const title = [config.emoji ? section.emoji : '', section.title]
+    .filter(Boolean)
+    .join(' ')
 
   return [
     '',

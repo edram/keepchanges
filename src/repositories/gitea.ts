@@ -1,6 +1,6 @@
-import type { RepositoryProvider } from '../provider'
+import type { RepositoryProvider } from '../repository'
 
-export const giteaProvider: RepositoryProvider = {
+export const giteaRepository: RepositoryProvider = {
   name: 'Gitea',
 
   parse(source) {
@@ -16,7 +16,7 @@ export const giteaProvider: RepositoryProvider = {
         return
 
       return {
-        provider: giteaProvider,
+        provider: giteaRepository,
         path,
         webUrl: `${url.origin}/${path}`,
       }
@@ -38,6 +38,12 @@ export const giteaProvider: RepositoryProvider = {
 
   compareUrl(repository, from, to) {
     return `${repository.webUrl}/compare/${from}...${to}`
+  },
+
+  manualReleaseUrl(repository, release) {
+    const url = new URL(`${repository.webUrl}/releases/new`)
+    url.search = new URLSearchParams({ tag: release.tag }).toString()
+    return url.toString()
   },
 
   async resolveAuthors(commits, repository, token, fetch) {
@@ -111,6 +117,7 @@ export const giteaProvider: RepositoryProvider = {
         name: release.name,
         body: release.body,
         prerelease: release.prerelease,
+        draft: release.draft,
       }),
     })
     if (!response.ok)

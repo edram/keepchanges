@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: ['src/cli.ts'],
+  entry: ['src/index.ts', 'src/cli.ts'],
   dts: true,
 })

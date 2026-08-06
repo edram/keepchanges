@@ -1,13 +1,14 @@
-import type { GitHubRequest } from './release'
+import type { GitHubRequest } from '../fixtures'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
-import { runChangelog } from '../src/run'
-import { command, commit } from './git'
 import {
+  command,
+  commit,
+  createChangesOptions,
   createReleaseRepository,
   githubReleaseFetch,
-} from './release'
+} from '../fixtures'
 
 it('creates and pushes a release without Git identity configuration', async () => {
   const { cwd, remote } = await createReleaseRepository()
@@ -15,11 +16,17 @@ it('creates and pushes a release without Git identity configuration', async () =
   await command(cwd, 'git', 'config', 'user.name', '')
   await command(cwd, 'git', 'config', 'user.email', '')
 
-  await runChangelog(
-    { version: '1.1.0', release: true, token: 'secret' },
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      token: 'secret',
+      name: 'Version 1.1.0',
+      draft: true,
+      prerelease: true,
+    },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch({ requests }),
     },
   )
@@ -76,8 +83,9 @@ it('creates and pushes a release without Git identity configuration', async () =
   const publish = requests.find(request => request.method === 'POST')
   expect(publish?.body).toMatchObject({
     tag_name: 'v1.1.0',
-    name: 'v1.1.0',
-    prerelease: false,
+    name: 'Version 1.1.0',
+    prerelease: true,
+    draft: true,
   })
   expect(publish?.body?.body).toContain('### 🚀 Features')
   expect(publish?.body?.body).toContain('by @test-author')
@@ -87,12 +95,11 @@ it('creates and pushes a release without Git identity configuration', async () =
 it('skips provider requests without a token', async () => {
   const { cwd, remote } = await createReleaseRepository()
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true },
     {
       cwd,
       env: {},
-      stdout: () => {},
       fetch: async () => {
         throw new Error('Provider API must not be called without a token')
       },
@@ -110,9 +117,45 @@ it('skips provider requests without a token', async () => {
   ).not.toBe('')
 })
 
+it('prints a manual Gitea release URL without a token', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      repository: 'https://gitea.example.com/example/project.git',
+    },
+    {
+      cwd,
+      env: {},
+      stdout: value => output += value,
+      fetch: async () => {
+        throw new Error('Provider API must not be called without a token')
+      },
+    },
+  )
+
+  expect(
+    (await command(
+      remote,
+      'git',
+      'rev-list',
+      '-n',
+      '1',
+      'refs/tags/v1.1.0',
+    )).stdout.trim(),
+  ).not.toBe('')
+  expect(output).toContain('No Gitea token found')
+  expect(output).toContain(
+    'https://gitea.example.com/example/project/releases/new?tag=v1.1.0',
+  )
+})
+
 it('reuses a release commit created before --release', async () => {
   const { cwd } = await createReleaseRepository()
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', commit: true, token: 'secret' },
     { cwd, fetch: githubReleaseFetch() },
   )
@@ -120,11 +163,10 @@ it('reuses a release commit created before --release', async () => {
     await command(cwd, 'git', 'rev-parse', 'HEAD')
   ).stdout.trim()
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch(),
     },
   )
@@ -150,11 +192,10 @@ it('publishes an existing tag without moving it or including later commits', asy
   ).stdout.trim()
   const requests: GitHubRequest[] = []
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch({ requests }),
     },
   )
@@ -180,11 +221,10 @@ it('pushes an existing local tag before publishing a release', async () => {
     await command(cwd, 'git', 'rev-list', '-n', '1', 'v1.1.0')
   ).stdout.trim()
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch(),
     },
   )
@@ -213,11 +253,10 @@ it('fetches an existing remote tag before publishing a release', async () => {
     await command(cwd, 'git', 'rev-parse', 'HEAD')
   ).stdout.trim()
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch(),
     },
   )
@@ -248,7 +287,7 @@ it('rejects conflicting local and remote release tags', async () => {
   ).stdout.trim()
   let requested = false
 
-  await expect(runChangelog(
+  await expect(createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
@@ -275,11 +314,10 @@ it('releases while preserving unrelated working tree changes', async () => {
   const { cwd, remote } = await createReleaseRepository()
   await writeFile(join(cwd, 'file.txt'), 'uncommitted change')
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch(),
     },
   )
@@ -309,11 +347,10 @@ it('previews a release without local or remote mutations with --dry', async () =
   ).stdout.trim()
   let requested = false
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, dry: true },
     {
       cwd,
-      stdout: () => {},
       fetch: async () => {
         requested = true
         return Response.json({ items: [] })
@@ -345,11 +382,10 @@ it('does not fetch a missing local tag during a release dry run', async () => {
   await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
   await command(cwd, 'git', 'tag', '--delete', 'v1.1.0')
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, dry: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: async () => {
         throw new Error('Provider API must not be called during a dry run')
       },
@@ -377,11 +413,10 @@ it('compares a stable release with the previous stable tag', async () => {
   await command(cwd, 'git', 'push', 'origin', 'HEAD', '--tags')
   let releaseBody = ''
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', release: true, token: 'secret' },
     {
       cwd,
-      stdout: () => {},
       fetch: githubReleaseFetch({
         onPublish: body => releaseBody = String(body.body),
       }),

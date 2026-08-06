@@ -1,5 +1,8 @@
-import type { VersionProvider } from './version-provider'
 import { npmVersionProvider } from './versions/npm'
+
+export interface VersionProvider {
+  update: (cwd: string, version: string) => Promise<string | undefined>
+}
 
 const providers: VersionProvider[] = [npmVersionProvider]
 

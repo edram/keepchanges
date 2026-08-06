@@ -1,15 +1,11 @@
-import type {
-  RepositoryAuthor,
-  RepositoryCommit,
-} from './provider'
+import type { RepositoryAuthor } from './repository'
 import { x } from 'tinyexec'
 
-export interface Commit extends RepositoryCommit {
-  type: string
-  scope: string
-  description: string
-  pullRequests: string[]
-  isBreaking: boolean
+export interface RawCommit {
+  hash: string
+  subject: string
+  body: string
+  author: RepositoryAuthor
 }
 
 export async function git(cwd: string, ...args: string[]): Promise<string> {
@@ -87,41 +83,19 @@ export async function getRemoteTagCommit(
   return (peeled || refs[0])?.split(/\s+/)[0]
 }
 
-export async function readCommits(
+export async function readGitCommits(
   cwd: string,
   from: string,
   to: string,
-): Promise<Commit[]> {
+): Promise<RawCommit[]> {
   const log = await git(
     cwd,
     'log',
     from ? `${from}..${to}` : to,
     '--format=%h%x00%an%x00%ae%x00%s%x00%b%x00',
   )
-
-  return parseGitLog(log)
-    .map(commit => parseCommit(
-      commit.hash,
-      commit.subject,
-      commit.body,
-      commit.author,
-    ))
-    .filter(commit => commit !== null)
-}
-
-function parseGitLog(log: string): Array<{
-  hash: string
-  subject: string
-  body: string
-  author: RepositoryAuthor
-}> {
   const fields = log.split('\0')
-  const commits: Array<{
-    hash: string
-    subject: string
-    body: string
-    author: RepositoryAuthor
-  }> = []
+  const commits: RawCommit[] = []
 
   for (let index = 0; index + 4 < fields.length; index += 5) {
     const subject = fields[index + 3].trim()
@@ -139,48 +113,4 @@ function parseGitLog(log: string): Array<{
   }
 
   return commits
-}
-
-export function parseCommit(
-  hash: string,
-  subject: string,
-  body: string,
-  author: RepositoryAuthor,
-): Commit | null {
-  const match = /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<description>.+)$/i.exec(subject)
-  if (!match?.groups)
-    return null
-
-  const pullRequestPattern = /\([ a-z]*(#\d+)\s*\)/gi
-  const pullRequests = [
-    ...new Set(
-      [...match.groups.description.matchAll(pullRequestPattern)]
-        .map(reference => reference[1]),
-    ),
-  ]
-  const authors = [author]
-  for (const coAuthor of body.matchAll(
-    /^Co-Authored-By:([^<\r\n]+)<([^>\r\n]+)>[^\S\r\n]*$/gim,
-  )) {
-    const email = coAuthor[2].trim()
-    if (!authors.some(author => author.email === email)) {
-      authors.push({
-        name: coAuthor[1].trim(),
-        email,
-      })
-    }
-  }
-
-  return {
-    hash,
-    authors: authors.filter(
-      author => !/\[bot\]|dependabot|\(bot\)/i.test(author.name),
-    ),
-    type: match.groups.type.toLowerCase(),
-    scope: match.groups.scope || '',
-    description: match.groups.description.replace(pullRequestPattern, '').trim(),
-    pullRequests,
-    isBreaking: Boolean(match.groups.breaking)
-      || /^BREAKING(?: |-)CHANGE:/im.test(body),
-  }
 }

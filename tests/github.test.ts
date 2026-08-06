@@ -1,11 +1,11 @@
 import type {
   RepositoryCommit,
   RepositoryRelease,
-} from '../src/provider'
+} from '../src/repository'
 import { describe, expect, it, vi } from 'vitest'
-import { githubProvider } from '../src/providers/github'
+import { githubRepository } from '../src/repositories/github'
 
-const repository = githubProvider.parse(
+const repository = githubRepository.parse(
   'git@github.com:example/project.git',
 )!
 const release: RepositoryRelease = {
@@ -13,6 +13,7 @@ const release: RepositoryRelease = {
   name: 'v1.1.0',
   body: '### Features\n\n- Add CLI',
   prerelease: false,
+  draft: false,
 }
 
 describe('gitHub repository metadata', () => {
@@ -21,38 +22,38 @@ describe('gitHub repository metadata', () => {
     'https://github.com/example/project.git',
     'git+https://github.com/example/project.git',
   ])('parses %s', (source) => {
-    expect(githubProvider.parse(source)).toMatchObject({
+    expect(githubRepository.parse(source)).toMatchObject({
       path: 'example/project',
       webUrl: 'https://github.com/example/project',
     })
   })
 
   it('rejects repositories from other providers', () => {
-    expect(githubProvider.parse('https://gitea.example.com/example/project.git'))
+    expect(githubRepository.parse('https://gitea.example.com/example/project.git'))
       .toBeUndefined()
   })
 
   it('resolves explicit and environment tokens in precedence order', () => {
-    expect(githubProvider.token(
+    expect(githubRepository.token(
       'explicit',
       { GITHUB_TOKEN: 'github', GH_TOKEN: 'gh' },
     )).toBe('explicit')
-    expect(githubProvider.token(
+    expect(githubRepository.token(
       undefined,
       { GITHUB_TOKEN: 'github', GH_TOKEN: 'gh' },
     )).toBe('github')
-    expect(githubProvider.token(undefined, { GH_TOKEN: 'gh' })).toBe('gh')
+    expect(githubRepository.token(undefined, { GH_TOKEN: 'gh' })).toBe('gh')
   })
 
   it('creates commit, comparison, and manual release URLs', () => {
-    expect(githubProvider.commitUrl(repository, '1234567')).toBe(
+    expect(githubRepository.commitUrl(repository, '1234567')).toBe(
       'https://github.com/example/project/commit/1234567',
     )
-    expect(githubProvider.compareUrl(repository, 'v1.0.0', 'v1.1.0')).toBe(
+    expect(githubRepository.compareUrl(repository, 'v1.0.0', 'v1.1.0')).toBe(
       'https://github.com/example/project/compare/v1.0.0...v1.1.0',
     )
 
-    const url = new URL(githubProvider.manualReleaseUrl!(repository, release))
+    const url = new URL(githubRepository.manualReleaseUrl!(repository, release))
     expect(`${url.origin}${url.pathname}`).toBe(
       'https://github.com/example/project/releases/new',
     )
@@ -82,7 +83,7 @@ describe('gitHub authors', () => {
       )
     })
 
-    await githubProvider.resolveAuthors!(
+    await githubRepository.resolveAuthors!(
       commits,
       repository,
       'secret',
@@ -111,7 +112,7 @@ describe('gitHub authors', () => {
       async () => Response.json({ items: [{ login: 'test-author' }] }),
     )
 
-    await githubProvider.resolveAuthors!(
+    await githubRepository.resolveAuthors!(
       commits,
       repository,
       'secret',
@@ -139,7 +140,7 @@ describe('gitHub releases', () => {
       })
     })
 
-    const result = await githubProvider.publishRelease!(
+    const result = await githubRepository.publishRelease!(
       repository,
       release,
       'secret',
@@ -164,6 +165,7 @@ describe('gitHub releases', () => {
       name: 'v1.1.0',
       body: release.body,
       prerelease: false,
+      draft: false,
     })
   })
 
@@ -179,7 +181,7 @@ describe('gitHub releases', () => {
       })
     })
 
-    const result = await githubProvider.publishRelease!(
+    const result = await githubRepository.publishRelease!(
       repository,
       release,
       'secret',

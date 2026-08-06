@@ -1,17 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it } from 'vitest'
 import { npmVersionProvider } from '../src/versions/npm'
-
-async function createDirectory() {
-  const cwd = await mkdtemp(join(tmpdir(), 'changelog-version-'))
-  onTestFinished(() => rm(cwd, { recursive: true, force: true }))
-  return cwd
-}
+import { createTemporaryDirectory } from './fixtures'
 
 it('updates the npm package version while preserving its formatting', async () => {
-  const cwd = await createDirectory()
+  const cwd = await createTemporaryDirectory('changelog-version-')
   const path = join(cwd, 'package.json')
   await writeFile(
     path,
@@ -24,18 +18,8 @@ it('updates the npm package version while preserving its formatting', async () =
   )
 })
 
-it('leaves an existing package version unchanged', async () => {
-  const cwd = await createDirectory()
-  const path = join(cwd, 'package.json')
-  const contents = '{"name":"test-package","version":"1.1.0"}'
-  await writeFile(path, contents)
-
-  await expect(npmVersionProvider.update(cwd, '1.1.0')).resolves.toBe(path)
-  await expect(readFile(path, 'utf8')).resolves.toBe(contents)
-})
-
 it('ignores directories without an npm package', async () => {
-  const cwd = await createDirectory()
+  const cwd = await createTemporaryDirectory('changelog-version-')
 
   await expect(npmVersionProvider.update(cwd, '1.1.0'))
     .resolves

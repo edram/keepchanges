@@ -1,6 +1,6 @@
-import type { RepositoryProvider } from '../provider'
+import type { RepositoryProvider } from '../repository'
 
-export const githubProvider: RepositoryProvider = {
+export const githubRepository: RepositoryProvider = {
   name: 'GitHub',
 
   parse(source) {
@@ -9,7 +9,7 @@ export const githubProvider: RepositoryProvider = {
       return
 
     return {
-      provider: githubProvider,
+      provider: githubRepository,
       path: match[1],
       webUrl: `https://github.com/${match[1]}`,
     }
@@ -121,6 +121,7 @@ export const githubProvider: RepositoryProvider = {
         name: release.name,
         body: release.body,
         prerelease: release.prerelease,
+        draft: release.draft,
       }),
     })
     if (!response.ok)

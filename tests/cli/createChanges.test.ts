@@ -1,9 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
-import { version } from '../package.json'
-import { runChangelog } from '../src/run'
-import { addPackage, command, createRepository } from './git'
+import { version } from '../../package.json'
+import {
+  addPackage,
+  command,
+  createChangesOptions,
+  createRepository,
+} from '../fixtures'
 
 const expectedChangelog = [
   '# Changelog',
@@ -16,7 +20,7 @@ const expectedChangelog = [
   '',
 ].join('\n')
 
-it('generates the first release from the initial commit', async () => {
+it('creates the first changelog from the initial commit', async () => {
   const cwd = await createRepository()
   await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
   await command(
@@ -31,7 +35,7 @@ it('generates the first release from the initial commit', async () => {
     await command(cwd, 'git', 'rev-list', '--max-parents=0', 'HEAD')
   ).stdout.trim()
 
-  await runChangelog({ version: '0.0.1' }, { cwd })
+  await createChangesOptions({ version: '0.0.1' }, { cwd })
 
   const changelog = await readFile(join(cwd, 'CHANGELOG.md'), 'utf8')
   expect(changelog).toContain('## v0.0.1')
@@ -44,7 +48,7 @@ it('generates the first release from the initial commit', async () => {
 it('commits the changelog with --commit', async () => {
   const cwd = await createRepository()
 
-  await runChangelog({ version: '1.1.0', commit: true }, { cwd })
+  await createChangesOptions({ version: '1.1.0', commit: true }, { cwd })
 
   const subject = (
     await command(cwd, 'git', 'log', '-1', '--format=%s')
@@ -59,7 +63,7 @@ it('updates and commits an npm package version with --commit', async () => {
   const cwd = await createRepository()
   await addPackage(cwd)
 
-  await runChangelog({ version: '1.1.0', commit: true }, { cwd })
+  await createChangesOptions({ version: '1.1.0', commit: true }, { cwd })
 
   const packageJson = JSON.parse(
     await readFile(join(cwd, 'package.json'), 'utf8'),
@@ -78,7 +82,7 @@ it('commits only release notes when the package version is already committed', a
   await command(cwd, 'git', 'add', 'package.json')
   await command(cwd, 'git', 'commit', '-m', 'release: v1.1.0')
 
-  await runChangelog({ version: '1.1.0', commit: true }, { cwd })
+  await createChangesOptions({ version: '1.1.0', commit: true }, { cwd })
 
   expect(
     (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
@@ -105,38 +109,21 @@ it('describes an existing release notes update in the commit message', async () 
   await command(cwd, 'git', 'add', 'package.json', 'CHANGELOG.md')
   await command(cwd, 'git', 'commit', '-m', 'publish version 1.1.0')
 
-  await runChangelog({ version: '1.1.0', commit: true }, { cwd })
+  await createChangesOptions({ version: '1.1.0', commit: true }, { cwd })
 
   expect(
     (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
   ).toBe('docs(changelog): update v1.1.0 release notes')
 })
 
-it('updates an npm package version without --commit', async () => {
+it('updates files without committing and honors a custom output path', async () => {
   const cwd = await createRepository()
   await addPackage(cwd)
   const head = (
     await command(cwd, 'git', 'rev-parse', 'HEAD')
   ).stdout.trim()
 
-  await runChangelog({ version: '1.1.0' }, { cwd })
-
-  const packageJson = JSON.parse(
-    await readFile(join(cwd, 'package.json'), 'utf8'),
-  )
-  expect(packageJson.version).toBe('1.1.0')
-  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
-    .resolves
-    .toBe(expectedChangelog)
-  expect(
-    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
-  ).toBe(head)
-})
-
-it('writes the changelog to a custom output path', async () => {
-  const cwd = await createRepository()
-
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', output: 'notes.md' },
     { cwd },
   )
@@ -147,6 +134,12 @@ it('writes the changelog to a custom output path', async () => {
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
     .rejects
     .toMatchObject({ code: 'ENOENT' })
+  expect(
+    JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')).version,
+  ).toBe('1.1.0')
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(head)
 })
 
 it('prints a dry run without modifying files', async () => {
@@ -155,7 +148,7 @@ it('prints a dry run without modifying files', async () => {
   await writeFile(join(cwd, 'CHANGELOG.md'), existingChangelog)
   let output = ''
 
-  await runChangelog(
+  await createChangesOptions(
     { version: '1.1.0', dry: true },
     { cwd, stdout: value => output += value },
   )
@@ -176,10 +169,49 @@ it('prints a dry run without modifying files', async () => {
     .toBe(existingChangelog)
 })
 
+it('uses explicit ranges, repository metadata, and style options', async () => {
+  const cwd = await createRepository()
+  const to = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+  await command(cwd, 'git', 'commit', '--allow-empty', '-m', 'fix: later change')
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      from: 'v1.0.0',
+      to,
+      repository: 'example/project',
+      dry: true,
+      emoji: false,
+      capitalize: false,
+    },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('v1.0.0 -> v1.1.0 (1 commits)')
+  expect(output).toContain('### Features')
+  expect(output).toContain('- add CLI - by **Test Author**')
+  expect(output).not.toContain('🐞 Bug Fixes')
+  expect(output).toContain(
+    'https://github.com/example/project/compare/v1.0.0...v1.1.0',
+  )
+})
+
+it('rejects a commit generated from a ref other than HEAD', async () => {
+  const cwd = await createRepository()
+
+  await expect(createChangesOptions(
+    { version: '1.1.0', to: 'v1.0.0', commit: true },
+    { cwd },
+  )).rejects.toThrow('--to must resolve to HEAD when used with --commit')
+})
+
 it('commits with the author provided by --author', async () => {
   const cwd = await createRepository()
 
-  await runChangelog(
+  await createChangesOptions(
     {
       version: '1.1.0',
       commit: true,
@@ -210,7 +242,7 @@ it('commits only the changelog and preserves other staged changes', async () => 
   await writeFile(join(cwd, 'staged.txt'), 'keep staged')
   await command(cwd, 'git', 'add', 'staged.txt')
 
-  await runChangelog({ version: '1.1.0', commit: true }, { cwd })
+  await createChangesOptions({ version: '1.1.0', commit: true }, { cwd })
 
   const committedFiles = (
     await command(cwd, 'git', 'show', '--format=', '--name-only', 'HEAD')
