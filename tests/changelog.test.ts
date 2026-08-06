@@ -142,6 +142,17 @@ describe('createChangelog', () => {
       '[View changes on GitHub](https://github.com/example/project/compare/v1.0.0...v1.1.0)',
     )
   })
+
+  it('renders a fallback when there are no significant changes', () => {
+    const { body } = createChangelog(
+      '1.1.0',
+      [commit({ type: 'chore' })],
+      undefined,
+      '',
+    )
+
+    expect(body).toBe('*No significant changes*')
+  })
 })
 
 describe('insertRelease', () => {

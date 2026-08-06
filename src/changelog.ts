@@ -9,7 +9,7 @@ export function createChangelog(
   repository: Repository | undefined,
   comparisonFrom: string,
 ): { body: string, release: string } {
-  const body = [
+  const changes = [
     ...renderSection(
       commits.filter(commit => commit.isBreaking),
       '🚨 Breaking Changes',
@@ -30,6 +30,9 @@ export function createChangelog(
       '🏎 Performance',
       repository,
     ),
+  ]
+  const body = [
+    ...(changes.length ? changes : ['*No significant changes*']),
     ...(repository && comparisonFrom
       ? [
           '',
