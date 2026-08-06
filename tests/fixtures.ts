@@ -4,6 +4,7 @@ import type { Options } from '../src/cli/options'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Ansis } from 'ansis'
 import { x } from 'tinyexec'
 import { onTestFinished } from 'vitest'
 import { createChanges } from '../src/cli/createChanges'
@@ -81,6 +82,7 @@ export function createChangesOptions(options: TestOptions, environment: CreateCh
   const { version, ...cliOptions } = options
   return createChanges(resolveOptions(version, cliOptions), {
     stdout: () => {},
+    colors: new Ansis(0),
     ...environment,
   })
 }
