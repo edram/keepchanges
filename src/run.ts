@@ -203,7 +203,7 @@ export async function runChangelog(
       printManualReleaseUrl()
     }
     else {
-      stdout(release)
+      printReleasePreview()
     }
     return
   }

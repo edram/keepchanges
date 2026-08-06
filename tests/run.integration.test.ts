@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
+import { version } from '../package.json'
 import { runChangelog } from '../src/run'
 import { addPackage, command, createRepository } from './git'
 
@@ -159,7 +160,17 @@ it('prints a dry run without modifying files', async () => {
     { cwd, stdout: value => output += value },
   )
 
-  expect(output).toBe(expectedChangelog.replace('# Changelog\n\n', ''))
+  expect(output).toBe([
+    `keepchanges v${version}`,
+    'v1.0.0 -> v1.1.0 (1 commits)',
+    '--------------',
+    '',
+    expectedChangelog
+      .replace('# Changelog\n\n## v1.1.0\n\n', '')
+      .replaceAll('&nbsp;', ''),
+    '--------------',
+    '',
+  ].join('\n'))
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8'))
     .resolves
     .toBe(existingChangelog)
