@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.0-beta.1
+
+### 🚨 Breaking Changes
+
+- Redesign CLI and release workflow &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(cec0a)</samp>](https://github.com/edram/keepchanges/commit/cec0af2)
+
+### 🐞 Bug Fixes
+
+- **cli**: Show header in dry run &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(2b3d3)</samp>](https://github.com/edram/keepchanges/commit/2b3d321)
+- **changelog**: Show fallback for empty releases &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(f09ca)</samp>](https://github.com/edram/keepchanges/commit/f09ca35)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v0.0.3...v1.0.0-beta.1)
+
 ## v0.0.3
 
 ### 🚀 Features
