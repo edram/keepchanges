@@ -27,11 +27,21 @@ it('creates a manual release URL for the selected tag', () => {
   })
 })
 
-it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
-  const commits: RepositoryCommit[] = [{
-    hash: '1234567',
-    authors: [{ name: 'edram', email: 'edram@example.com' }],
-  }]
+it('resolves an author from the first valid Gitea commit', async () => {
+  const commits: RepositoryCommit[] = [
+    {
+      hash: 'release',
+      authors: [],
+    },
+    {
+      hash: '1234567',
+      authors: [{ name: 'edram', email: 'edram@example.com' }],
+    },
+    {
+      hash: '2345678',
+      authors: [{ name: 'edram', email: 'edram@example.com' }],
+    },
+  ]
   const fetch = vi.fn<typeof globalThis.fetch>(
     async () => Response.json({ author: { login: 'edram' } }),
   )
@@ -56,7 +66,8 @@ it('resolves a Gitea commit author with GITEA_TOKEN', async () => {
       },
     },
   )
-  expect(commits[0].authors[0].login).toBe('edram')
+  expect(commits[1].authors[0].login).toBe('edram')
+  expect(commits[2].authors[0].login).toBe('edram')
 })
 
 it('creates a Gitea release when the tag has not been published', async () => {

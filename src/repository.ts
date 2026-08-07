@@ -15,6 +15,26 @@ export interface RepositoryCommit {
   authors: RepositoryAuthor[]
 }
 
+export interface RepositoryAuthorInfo {
+  author: RepositoryAuthor
+  commit?: RepositoryCommit
+}
+
+export function collectRepositoryAuthors(
+  commits: RepositoryCommit[],
+): Map<string, RepositoryAuthorInfo> {
+  const authorsByEmail = new Map<string, RepositoryAuthorInfo>()
+  for (const commit of commits) {
+    commit.authors.forEach((author, index) => {
+      const info = authorsByEmail.get(author.email) ?? { author }
+      if (index === 0 && !info.commit)
+        info.commit = commit
+      authorsByEmail.set(author.email, info)
+    })
+  }
+  return authorsByEmail
+}
+
 export interface Repository {
   provider: RepositoryProvider
   path: string

@@ -1,4 +1,5 @@
 import type { RepositoryProvider } from '../repository'
+import { collectRepositoryAuthors } from '../repository'
 
 export const giteaRepository: RepositoryProvider = {
   name: 'Gitea',
@@ -55,16 +56,12 @@ export const giteaRepository: RepositoryProvider = {
       accept: 'application/json',
       authorization: `token ${token}`,
     }
-    const commitsByEmail = new Map(
-      commits.flatMap(commit =>
-        commit.authors[0]
-          ? [[commit.authors[0].email, commit] as const]
-          : [],
-      ),
-    )
-    const loginsByEmail = new Map<string, string>()
+    const authorsByEmail = collectRepositoryAuthors(commits)
 
-    await Promise.all([...commitsByEmail].map(async ([email, commit]) => {
+    await Promise.all([...authorsByEmail.values()].map(async (info) => {
+      const { author, commit } = info
+      if (!commit)
+        return
       try {
         const response = await fetch(
           `${new URL(repository.webUrl).origin}/api/v1/repos/${repository.path}/git/commits/${commit.hash}`,
@@ -77,14 +74,14 @@ export const giteaRepository: RepositoryProvider = {
           author?: { login?: string }
         }
         if (data.author?.login)
-          loginsByEmail.set(email, data.author.login)
+          author.login = data.author.login
       }
       catch {}
     }))
 
     for (const commit of commits) {
       for (const author of commit.authors)
-        author.login = loginsByEmail.get(author.email)
+        author.login = authorsByEmail.get(author.email)?.author.login
     }
   },
 

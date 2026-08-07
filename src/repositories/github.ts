@@ -1,4 +1,5 @@
 import type { RepositoryProvider } from '../repository'
+import { collectRepositoryAuthors } from '../repository'
 
 export const githubRepository: RepositoryProvider = {
   name: 'GitHub',
@@ -51,13 +52,10 @@ export const githubRepository: RepositoryProvider = {
       accept: 'application/vnd.github.v3+json',
       authorization: `token ${token}`,
     }
-    const authorsByEmail = new Map(
-      commits
-        .flatMap(commit => commit.authors)
-        .map(author => [author.email, author]),
-    )
+    const authorsByEmail = collectRepositoryAuthors(commits)
 
-    await Promise.all([...authorsByEmail.values()].map(async (author) => {
+    await Promise.all([...authorsByEmail.values()].map(async (info) => {
+      const { author, commit } = info
       try {
         const query = encodeURIComponent(`${author.email} type:user in:email`)
         const response = await fetch(
@@ -69,9 +67,6 @@ export const githubRepository: RepositoryProvider = {
         }
         author.login = data.items?.[0]?.login
 
-        const commit = commits.find(
-          commit => commit.authors[0].email === author.email,
-        )
         if (!author.login && commit) {
           const commitResponse = await fetch(
             `https://api.github.com/repos/${repository.path}/commits/${commit.hash}`,
@@ -88,7 +83,7 @@ export const githubRepository: RepositoryProvider = {
 
     for (const commit of commits) {
       for (const author of commit.authors)
-        author.login = authorsByEmail.get(author.email)?.login
+        author.login = authorsByEmail.get(author.email)?.author.login
     }
   },
 

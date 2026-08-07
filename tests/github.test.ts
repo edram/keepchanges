@@ -67,11 +67,17 @@ describe('gitHub repository metadata', () => {
 })
 
 describe('gitHub authors', () => {
-  it('resolves an author from the GitHub commit when email search misses', async () => {
-    const commits: RepositoryCommit[] = [{
-      hash: '1234567',
-      authors: [{ name: 'Test Author', email: 'author@example.com' }],
-    }]
+  it('resolves an author when a commit without authors comes first', async () => {
+    const commits: RepositoryCommit[] = [
+      {
+        hash: 'release',
+        authors: [],
+      },
+      {
+        hash: '1234567',
+        authors: [{ name: 'Test Author', email: 'author@example.com' }],
+      },
+    ]
     const requests: string[] = []
     const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
       const url = String(input)
@@ -94,7 +100,7 @@ describe('gitHub authors', () => {
       'https://api.github.com/search/users?q=author%40example.com%20type%3Auser%20in%3Aemail',
       'https://api.github.com/repos/example/project/commits/1234567',
     ])
-    expect(commits[0].authors[0].login).toBe('commit-author')
+    expect(commits[1].authors[0].login).toBe('commit-author')
   })
 
   it('reuses a resolved login for the same email', async () => {
