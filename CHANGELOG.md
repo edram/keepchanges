@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.0-beta.2
+
+### 🐞 Bug Fixes
+
+- **cli**:
+  - Resolve authors in release previews &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(23725)</samp>](https://github.com/edram/keepchanges/commit/2372529)
+  - Show provider token environment variables &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(872ad)</samp>](https://github.com/edram/keepchanges/commit/872ad45)
+  - Link existing tags to release editors &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(c8fbb)</samp>](https://github.com/edram/keepchanges/commit/c8fbbaa)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.0-beta.1...v1.0.0-beta.2)
+
 ## v1.0.0-beta.1
 
 ### 🚨 Breaking Changes
