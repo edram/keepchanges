@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.0
+
+### 🚨 Breaking Changes
+
+- Redesign CLI and release workflow &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(cec0a)</samp>](https://github.com/edram/keepchanges/commit/cec0af2)
+
+### 🐞 Bug Fixes
+
+- **changelog**:
+  - Show fallback for empty releases &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(f09ca)</samp>](https://github.com/edram/keepchanges/commit/f09ca35)
+- **cli**:
+  - Show header in dry run &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(2b3d3)</samp>](https://github.com/edram/keepchanges/commit/2b3d321)
+  - Resolve authors in release previews &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(23725)</samp>](https://github.com/edram/keepchanges/commit/2372529)
+  - Show provider token environment variables &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(872ad)</samp>](https://github.com/edram/keepchanges/commit/872ad45)
+  - Link existing tags to release editors &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(c8fbb)</samp>](https://github.com/edram/keepchanges/commit/c8fbbaa)
+- **repositories**:
+  - Resolve authors from valid commits &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(13c7a)</samp>](https://github.com/edram/keepchanges/commit/13c7a8c)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v0.0.3...v1.0.0)
+
 ## v1.0.0-beta.3
 
 ### 🐞 Bug Fixes
