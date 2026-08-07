@@ -34,6 +34,8 @@ export interface RepositoryReleaseResult {
   action: 'created' | 'updated'
 }
 
+export type ManualReleaseAction = 'create' | 'edit'
+
 export interface RepositoryProvider {
   name: string
   tokenEnv: string
@@ -57,6 +59,7 @@ export interface RepositoryProvider {
   manualReleaseUrl?: (
     repository: Repository,
     release: RepositoryRelease,
+    action?: ManualReleaseAction,
   ) => string
 }
 

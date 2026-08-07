@@ -122,6 +122,27 @@ it('skips provider requests without a token', async () => {
   )
 })
 
+it('links to manually editing an existing tag without a token', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.1.0', release: true },
+    {
+      cwd,
+      env: {},
+      stdout: value => output += value,
+    },
+  )
+
+  expect(output).toContain('Using the following link to edit it manually:')
+  expect(output).toContain(
+    'https://github.com/example/project/releases/edit/v1.1.0',
+  )
+})
+
 it('prints a manual Gitea release URL without a token', async () => {
   const { cwd, remote } = await createReleaseRepository()
   let output = ''
@@ -381,6 +402,54 @@ it('previews a release without local or remote mutations with --dry', async () =
   await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
     code: 'ENOENT',
   })
+})
+
+it('links to editing an existing tag during a release dry run', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.1.0', release: true, dry: true },
+    {
+      cwd,
+      env: {},
+      stdout: value => output += value,
+    },
+  )
+
+  expect(output).toContain('Using the following link to edit it manually:')
+  expect(output).toContain(
+    'https://github.com/example/project/releases/edit/v1.1.0',
+  )
+  expect(output).not.toContain('/releases/new')
+})
+
+it('links to editing an existing Gitea tag during a release dry run', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', 'refs/tags/v1.1.0')
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      dry: true,
+      repository: 'https://gitea.example.com/example/project.git',
+    },
+    {
+      cwd,
+      env: {},
+      stdout: value => output += value,
+    },
+  )
+
+  expect(output).toContain(
+    'https://gitea.example.com/example/project/releases/edit/v1.1.0',
+  )
+  expect(output).not.toContain('/releases/new')
 })
 
 it('resolves authors while previewing a release', async () => {

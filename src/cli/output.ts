@@ -1,5 +1,6 @@
 import type ansis from 'ansis'
 import type {
+  ManualReleaseAction,
   Repository,
   RepositoryRelease,
   RepositoryReleaseResult,
@@ -35,11 +36,16 @@ export function printManualReleaseUrl(
   release: RepositoryRelease,
   stdout: (value: string) => void,
   colors: typeof ansis,
+  action: ManualReleaseAction = 'create',
 ): void {
-  const url = repository.provider.manualReleaseUrl?.(repository, release)
+  const url = repository.provider.manualReleaseUrl?.(
+    repository,
+    release,
+    action,
+  )
   if (url) {
     stdout(
-      `${colors.yellow('Using the following link to create it manually:')}\n${colors.yellow(url)}\n`,
+      `${colors.yellow(`Using the following link to ${action} it manually:`)}\n${colors.yellow(url)}\n`,
     )
   }
 }

@@ -1,5 +1,9 @@
 import type { ChangelogConfigOverrides } from '../config'
-import type { Repository, RepositoryRelease } from '../repository'
+import type {
+  ManualReleaseAction,
+  Repository,
+  RepositoryRelease,
+} from '../repository'
 import type { Options } from './options'
 import type { ChangesPreview } from './output'
 import { resolve } from 'node:path'
@@ -154,7 +158,13 @@ export async function createChanges(
     printChangesPreview(preview, stdout, colors)
     if (options.release) {
       stdout(`${colors.yellow('Dry run. Release skipped.')}\n\n`)
-      printManualReleaseUrl(repository!, repositoryRelease, stdout, colors)
+      printManualReleaseUrl(
+        repository!,
+        repositoryRelease,
+        stdout,
+        colors,
+        taggedCommit ? 'edit' : 'create',
+      )
     }
     return
   }
@@ -174,6 +184,7 @@ export async function createChanges(
       token,
       preview,
       environment,
+      'edit',
     )
     return
   }
@@ -286,6 +297,7 @@ async function publishRelease(
   token: string | undefined,
   preview: ChangesPreview,
   environment: CreateChangesEnvironment,
+  manualAction: ManualReleaseAction = 'create',
 ): Promise<void> {
   const stdout = environment.stdout ?? (value => process.stdout.write(value))
   const colors = environment.colors ?? ansis
@@ -297,7 +309,13 @@ async function publishRelease(
     stdout(
       `${colors.red(`No ${repository.provider.name} token found, specify it via --token or ${repository.provider.tokenEnv} env. Release skipped.`)}\n\n`,
     )
-    printManualReleaseUrl(repository, release, stdout, colors)
+    printManualReleaseUrl(
+      repository,
+      release,
+      stdout,
+      colors,
+      manualAction,
+    )
     return
   }
 

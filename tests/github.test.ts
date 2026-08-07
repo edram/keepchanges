@@ -170,12 +170,16 @@ describe('gitHub releases', () => {
   })
 
   it('updates the release already associated with the tag', async () => {
-    const requests: Array<{ url: string, method?: string }> = []
+    const requests: Array<{ url: string, method?: string, body?: string }> = []
     const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
       const url = String(input)
-      requests.push({ url, method: init?.method })
+      requests.push({
+        url,
+        method: init?.method,
+        body: typeof init?.body === 'string' ? init.body : undefined,
+      })
       if (url.endsWith('/releases/tags/v1.1.0'))
-        return Response.json({ id: 42 })
+        return Response.json({ id: 42, body: 'Old release notes' })
       return Response.json({
         html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
       })
@@ -189,9 +193,13 @@ describe('gitHub releases', () => {
     )
 
     expect(result.action).toBe('updated')
-    expect(requests[1]).toEqual({
+    expect(requests[1]).toMatchObject({
       url: 'https://api.github.com/repos/example/project/releases/42',
       method: 'PATCH',
+    })
+    expect(JSON.parse(requests[1].body!)).toMatchObject({
+      tag_name: 'v1.1.0',
+      body: release.body,
     })
   })
 })

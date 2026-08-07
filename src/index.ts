@@ -21,6 +21,7 @@ export type {
 } from './config'
 export type { RawCommit } from './git'
 export type {
+  ManualReleaseAction,
   Repository,
   RepositoryAuthor,
   RepositoryCommit,

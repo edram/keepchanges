@@ -32,7 +32,10 @@ export const githubRepository: RepositoryProvider = {
     return `${repository.webUrl}/compare/${from}...${to}`
   },
 
-  manualReleaseUrl(repository, release) {
+  manualReleaseUrl(repository, release, action) {
+    if (action === 'edit')
+      return `${repository.webUrl}/releases/edit/${encodeURIComponent(release.tag)}`
+
     const url = new URL(`${repository.webUrl}/releases/new`)
     url.search = new URLSearchParams({
       title: release.name,

@@ -143,7 +143,8 @@ GitHub 和 Gitea 均支持作者解析和 Release 发布；Gitea 使用 `GITEA_T
 时会停止，不会强制覆盖。
 
 稳定版本会与前一个稳定 tag 对比，预发布版本会与最近的前一个 tag 对比。与
-`--release` 搭配的 `--dry` 优先级最高，不会执行任何写入或远程修改。
+`--release` 搭配的 `--dry` 优先级最高，不会执行任何写入或远程修改。手动链接
+会为新 tag 打开创建 Release 页面，为已有 tag 打开编辑页面。
 
 > [!NOTE]
 > 没有 token 的普通 `--release` 仍会执行本地写入、commit、tag 和 push，

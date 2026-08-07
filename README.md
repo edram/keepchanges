@@ -150,7 +150,8 @@ different commits.
 
 Stable releases compare with the previous stable tag. Prereleases compare with
 the nearest previous tag. With `--release`, `--dry` takes precedence and
-prevents all file writes and remote mutations.
+prevents all file writes and remote mutations. Its manual URL opens a new
+Release for a new tag and the edit page for an existing tag.
 
 > [!NOTE]
 > A regular `--release` without a token still writes files, commits, tags, and
