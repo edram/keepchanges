@@ -116,7 +116,7 @@ export async function createChanges(
     await readGitCommits(environment.cwd, from, to),
   )
 
-  if (token && repository && !(options.release && options.dry)) {
+  if (token && repository) {
     await repository.provider.resolveAuthors?.(
       commits,
       repository,

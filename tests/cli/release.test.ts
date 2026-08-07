@@ -376,6 +376,28 @@ it('previews a release without local or remote mutations with --dry', async () =
   })
 })
 
+it('resolves authors while previewing a release', async () => {
+  const { cwd } = await createReleaseRepository()
+  const requests: GitHubRequest[] = []
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.1.0', release: true, dry: true, token: 'secret' },
+    {
+      cwd,
+      stdout: value => output += value,
+      fetch: githubReleaseFetch({ requests }),
+    },
+  )
+
+  expect(output).toContain('by @test-author')
+  expect(requests).toHaveLength(1)
+  expect(requests[0]).toMatchObject({
+    method: 'GET',
+  })
+  expect(requests[0].url).toContain('/search/users')
+})
+
 it('does not fetch a missing local tag during a release dry run', async () => {
   const { cwd } = await createReleaseRepository()
   await command(cwd, 'git', 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
@@ -386,9 +408,7 @@ it('does not fetch a missing local tag during a release dry run', async () => {
     { version: '1.1.0', release: true, dry: true, token: 'secret' },
     {
       cwd,
-      fetch: async () => {
-        throw new Error('Provider API must not be called during a dry run')
-      },
+      fetch: githubReleaseFetch(),
     },
   )
 
