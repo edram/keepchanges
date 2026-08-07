@@ -94,12 +94,14 @@ it('creates and pushes a release without Git identity configuration', async () =
 
 it('skips provider requests without a token', async () => {
   const { cwd, remote } = await createReleaseRepository()
+  let output = ''
 
   await createChangesOptions(
     { version: '1.1.0', release: true },
     {
       cwd,
       env: {},
+      stdout: value => output += value,
       fetch: async () => {
         throw new Error('Provider API must not be called without a token')
       },
@@ -115,6 +117,9 @@ it('skips provider requests without a token', async () => {
       'refs/tags/v1.1.0',
     )).stdout.trim(),
   ).not.toBe('')
+  expect(output).toContain(
+    'No GitHub token found, specify it via --token or GITHUB_TOKEN env. Release skipped.',
+  )
 })
 
 it('prints a manual Gitea release URL without a token', async () => {
@@ -147,7 +152,9 @@ it('prints a manual Gitea release URL without a token', async () => {
       'refs/tags/v1.1.0',
     )).stdout.trim(),
   ).not.toBe('')
-  expect(output).toContain('No Gitea token found')
+  expect(output).toContain(
+    'No Gitea token found, specify it via --token or GITEA_TOKEN env. Release skipped.',
+  )
   expect(output).toContain(
     'https://gitea.example.com/example/project/releases/new?tag=v1.1.0',
   )

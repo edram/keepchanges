@@ -36,6 +36,7 @@ export interface RepositoryReleaseResult {
 
 export interface RepositoryProvider {
   name: string
+  tokenEnv: string
   parse: (source: string) => Repository | undefined
   token: (explicit: string | undefined, env: NodeJS.ProcessEnv) => string | undefined
   commitUrl: (repository: Repository, hash: string) => string

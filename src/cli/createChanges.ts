@@ -295,7 +295,7 @@ async function publishRelease(
     if (!repository.provider.manualReleaseUrl)
       throw new Error('A repository token is required to release')
     stdout(
-      `${colors.red(`No ${repository.provider.name} token found, specify it via --token or environment variable. Release skipped.`)}\n\n`,
+      `${colors.red(`No ${repository.provider.name} token found, specify it via --token or ${repository.provider.tokenEnv} env. Release skipped.`)}\n\n`,
     )
     printManualReleaseUrl(repository, release, stdout, colors)
     return

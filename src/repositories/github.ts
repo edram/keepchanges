@@ -2,6 +2,7 @@ import type { RepositoryProvider } from '../repository'
 
 export const githubRepository: RepositoryProvider = {
   name: 'GitHub',
+  tokenEnv: 'GITHUB_TOKEN',
 
   parse(source) {
     const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(source)

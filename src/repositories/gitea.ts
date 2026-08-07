@@ -2,6 +2,7 @@ import type { RepositoryProvider } from '../repository'
 
 export const giteaRepository: RepositoryProvider = {
   name: 'Gitea',
+  tokenEnv: 'GITEA_TOKEN',
 
   parse(source) {
     try {
