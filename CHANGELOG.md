@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.0-beta.3
+
+### 🐞 Bug Fixes
+
+- **repositories**: Resolve authors from valid commits &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(13c7a)</samp>](https://github.com/edram/keepchanges/commit/13c7a8c)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.0-beta.2...v1.0.0-beta.3)
+
 ## v1.0.0-beta.2
 
 ### 🐞 Bug Fixes
