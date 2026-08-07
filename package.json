@@ -36,11 +36,11 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "start": "tsx ./src/cli.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "pnpm run build && vitest run",
     "typecheck": "tsc --noEmit",
-    "release": "bumpp",
     "prepublishOnly": "pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
@@ -52,9 +52,9 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.2.0",
     "@types/node": "^26.1.1",
-    "bumpp": "^11.1.0",
     "eslint": "^10.7.0",
     "tsdown": "^0.22.5",
+    "tsx": "^4.23.8",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
