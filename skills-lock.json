@@ -1,23 +1,29 @@
 {
   "version": 1,
   "skills": {
+    "cac": {
+      "source": "cacjs/cac",
+      "sourceType": "github",
+      "skillPath": "skills/cac/SKILL.md",
+      "computedHash": "135ab59eb9f6e22a2fa3038ab77fcf7daf0de3ae27a145b07e9a9dd3f0ac4bbc"
+    },
     "coding": {
       "source": "edram/skills",
       "sourceType": "github",
       "skillPath": "skills/coding/SKILL.md",
-      "computedHash": "b72bcf9d026afbdbe8e1ae2fcbf4b59e18662afb7aebbe9e19f09d699f881752"
+      "computedHash": "baaa9ffa52633f0d1240be8c180dfcd191b7157196d53152dc91d9bbf4c3f49d"
     },
     "git-commit-convention": {
       "source": "edram/skills",
       "sourceType": "github",
       "skillPath": "skills/git-commit-convention/SKILL.md",
-      "computedHash": "9c18c572ccc47dad954e4541c6683d857b761a4049df267bfc469d4aeffbb59b"
+      "computedHash": "8524a19e3006ac139ac316c57878c39a7d77e399bd045a71516c2b237ca47d2e"
     },
     "tdd": {
       "source": "edram/skills",
       "sourceType": "github",
       "skillPath": "skills/tdd/SKILL.md",
-      "computedHash": "80e8728cbd8a538ee2fa2b9b68ab10163c54b344f540d147f1b011ff6148847e"
+      "computedHash": "26064c0105217cd9bdc58a1f7f31b70a44a0e796c673981c1f33e6ea9e254736"
     }
   }
 }
