@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.1
+
+### 🚀 Features
+
+- **cli**: Support configurable tag prefixes &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(a6418)</samp>](https://github.com/edram/keepchanges/commit/a64182b)
+
+### 🐞 Bug Fixes
+
+- **cli**: Enforce argument validation &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(44386)</samp>](https://github.com/edram/keepchanges/commit/4438614)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.0...v1.0.1)
+
 ## v1.0.0
 
 ### 🚨 Breaking Changes
