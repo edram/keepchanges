@@ -5,6 +5,7 @@ import { version } from '../../package.json'
 import {
   addPackage,
   command,
+  commit,
   createChangesOptions,
   createRepository,
 } from '../fixtures'
@@ -197,6 +198,80 @@ it('uses explicit ranges, repository metadata, and style options', async () => {
   expect(output).toContain(
     'https://github.com/example/project/compare/v1.0.0...v1.1.0',
   )
+})
+
+it('infers the previous tag relative to an explicit historical version', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', 'v1.1.0')
+  await commit(cwd, 'fix: later change')
+  await command(cwd, 'git', 'tag', 'v1.2.0')
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.1.0', to: '1.1.0', dry: true },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('v1.0.0 -> v1.1.0 (1 commits)')
+  expect(output).toContain('Add CLI')
+  expect(output).not.toContain('Later change')
+})
+
+it('reads full history when an explicit target is the first version tag', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(cwd, 'git', 'tag', 'v1.0.0')
+  await commit(cwd, 'fix: later change')
+  await command(cwd, 'git', 'tag', 'v1.1.0')
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.0.0', to: '1.0.0', dry: true },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('-> v1.0.0 (2 commits)')
+  expect(output).toContain('Add CLI')
+  expect(output).not.toContain('Later change')
+})
+
+it('does not mix prefixed tags into an unprefixed historical range', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '1.1.0')
+  await commit(cwd, 'fix: later change')
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      to: '1.1.0',
+      tagPrefix: '',
+      dry: true,
+    },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('-> 1.1.0 (2 commits)')
+  expect(output).toContain('Add CLI')
+})
+
+it('infers the previous tag relative to an explicit commit hash', async () => {
+  const cwd = await createRepository()
+  const to = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+  await commit(cwd, 'fix: later change')
+  await command(cwd, 'git', 'tag', 'v1.2.0')
+  let output = ''
+
+  await createChangesOptions(
+    { version: '1.1.0', to, dry: true },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('v1.0.0 -> v1.1.0 (1 commits)')
+  expect(output).toContain('Add CLI')
+  expect(output).not.toContain('Later change')
 })
 
 it.each([

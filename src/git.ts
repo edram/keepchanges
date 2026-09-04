@@ -90,7 +90,10 @@ export async function getPreviousTag(
       .find((candidate) => {
         if (candidate === tag || !candidate.startsWith(tagPrefix))
           return false
-        const version = normalizeFull(candidate.slice(tagPrefix.length))
+        const versionTag = candidate.slice(tagPrefix.length)
+        if (!/^\d/.test(versionTag))
+          return false
+        const version = normalizeFull(versionTag)
         return Boolean(version && !version.includes('-'))
       })
     if (previousStable)

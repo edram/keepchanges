@@ -49,7 +49,7 @@ npx keepchanges <version> [options]
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
 | `<version>` | 必填 | 要生成的版本号。可以传入 `1.1.0` 或 `v1.1.0`。包含 `-` 的版本会作为预发布版本，例如 `1.1.0-beta.1`。 |
-| `--from <ref>` | 匹配前缀的最近 tag | 指定读取 commit 的起始 Git ref，并覆盖自动选择结果。`1.0.0` 这类版本会自动应用配置的 tag 前缀。 |
+| `--from <ref>` | 根据目标推断 | 指定读取 commit 时不包含在结果中的起始 Git ref，并覆盖自动选择结果。省略时，目标为 `HEAD` 会使用匹配前缀的最近 tag；显式传入 `--to` 会查找该目标之前匹配前缀的 tag。如果不存在前一个 tag，则从首个 commit 开始读取。`1.0.0` 这类版本会自动应用配置的 tag 前缀。 |
 | `--to <ref>` | `HEAD` | 指定读取 commit 的结束 Git ref。`1.1.0` 这类版本会自动应用配置的 tag 前缀。不能与 `--release` 一起使用；与 `--commit` 一起使用时必须指向当前 `HEAD`。 |
 | `--repository <source>` | 自动检测 | 指定 `owner/repo` 格式的 GitHub 仓库或 GitHub/Gitea 完整 URL。优先级高于 `package.json` 和 `origin`。 |
 | `--output <path>` | `CHANGELOG.md` | 指定 changelog 文件路径。相对路径以当前工作目录为基准。 |
@@ -112,6 +112,12 @@ npx keepchanges 1.1.0 --no-tag-prefix
 npx keepchanges 1.1.0 --tag-prefix 'package@'
 ```
 
+不指定前一个 tag，重新生成历史版本：
+
+```bash
+npx keepchanges 1.0.0 --to 1.0.0 --dry
+```
+
 预览 Release，不写文件、不提交、不创建 tag、不推送且不调用发布 API：
 
 ```bash
@@ -141,6 +147,9 @@ GitHub 和 Gitea 均支持作者解析和 Release 发布；Gitea 使用 `GITEA_T
 版本形式的 `--from` 和 `--to`、比较链接及仓库 Release 名称。分支名、commit
 hash、`HEAD` 等非版本 ref 保持不变。自动查找 tag 时只考虑配置的前缀，因此
 彼此独立的 tag 序列不会相互影响。
+省略 `--from` 并传入 `--to` 时，CLI 会相对于该目标查找匹配前缀的前一个 tag，
+而不是使用当前 `HEAD` 的最近 tag。如果目标是该序列中的首个 tag，则读取该目标
+可达的全部 commit。
 
 默认使用 Git 提交中的作者名，并将 `Co-Authored-By` 参与者一起写入记录，bot
 账号会被忽略。提供对应平台的 token 后，会尝试将邮箱解析为用户名。

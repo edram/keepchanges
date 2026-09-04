@@ -50,7 +50,7 @@ npx keepchanges <version> [options]
 | Argument or option | Default | Description |
 | --- | --- | --- |
 | `<version>` | Required | Version to generate. Accepts `1.1.0` or `v1.1.0`. A version containing `-`, such as `1.1.0-beta.1`, is treated as a prerelease. |
-| `--from <ref>` | Latest matching tag | Overrides the starting Git ref used to read commits. A version such as `1.0.0` uses the configured tag prefix. |
+| `--from <ref>` | Inferred from target | Overrides the exclusive starting Git ref used to read commits. Without it, the latest matching tag is used for `HEAD`, or the previous matching tag relative to an explicit `--to`. If no previous tag exists, history starts at the first commit. A version such as `1.0.0` uses the configured tag prefix. |
 | `--to <ref>` | `HEAD` | Sets the ending Git ref. A version such as `1.1.0` uses the configured tag prefix. It cannot be combined with `--release`, and must resolve to the current `HEAD` when used with `--commit`. |
 | `--repository <source>` | Auto-detected | Sets a GitHub `owner/repo` slug or a complete GitHub/Gitea URL. It takes precedence over `package.json` and `origin`. |
 | `--output <path>` | `CHANGELOG.md` | Sets the changelog file path. Relative paths are resolved from the current working directory. |
@@ -113,6 +113,12 @@ Use a package-specific tag prefix:
 npx keepchanges 1.1.0 --tag-prefix 'package@'
 ```
 
+Rebuild a historical release without specifying its previous tag:
+
+```bash
+npx keepchanges 1.0.0 --to 1.0.0 --dry
+```
+
 Preview a Release without writing, committing, tagging, pushing, or calling the
 release API:
 
@@ -146,6 +152,9 @@ new tags, existing-tag lookup, version-shaped `--from` and `--to` values,
 comparison links, and repository Release names. Branch names, commit hashes,
 `HEAD`, and other non-version refs are used unchanged. Tag lookup only considers
 the configured prefix, so independent tag sequences do not affect each other.
+When `--to` is provided without `--from`, the CLI finds the previous matching
+tag relative to that target instead of the current `HEAD`. For the first tag in
+a sequence, it reads all commits reachable from the target.
 
 Entries use Git author names by default and include `Co-Authored-By`
 participants. Bot accounts are omitted. With the corresponding provider token,

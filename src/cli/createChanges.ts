@@ -102,25 +102,27 @@ export async function createChanges(
     }
   }
 
-  const from = options.from ?? (
-    taggedCommit
-      ? await getPreviousTag(
-          environment.cwd,
-          tag,
-          releaseRef!,
-          options.tagPrefix,
-        )
-      : await getLatestTag(environment.cwd, options.tagPrefix)
-  )
   const to = releaseRef || options.to
-  const resolvedFrom = from
-    ? await resolveVersionRef(environment.cwd, from, options.tagPrefix)
-    : ''
   const resolvedTo = await resolveVersionRef(
     environment.cwd,
     to,
     options.tagPrefix,
   )
+  const inferFromTarget = releaseRef !== undefined
+    || options.to !== defaultConfig.cli.to
+  const from = options.from ?? (
+    inferFromTarget
+      ? await getPreviousTag(
+          environment.cwd,
+          tag,
+          resolvedTo,
+          options.tagPrefix,
+        )
+      : await getLatestTag(environment.cwd, options.tagPrefix)
+  )
+  const resolvedFrom = from
+    ? await resolveVersionRef(environment.cwd, from, options.tagPrefix)
+    : ''
   const comparisonFrom = resolvedFrom || (
     repository
       ? await git(
