@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.2
+
+### 🐞 Bug Fixes
+
+- **cli**: Infer previous tag from explicit target &nbsp;-&nbsp; by @edram and **Codex GPT-5** [<samp>(a5397)</samp>](https://github.com/edram/keepchanges/commit/a539754)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.1...v1.0.2)
+
 ## v1.0.1
 
 ### 🚀 Features
