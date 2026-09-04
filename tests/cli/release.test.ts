@@ -92,6 +92,44 @@ it('creates and pushes a release without Git identity configuration', async () =
   expect(publish?.body?.body).not.toContain('## v1.1.0')
 })
 
+it('creates a release tag without a prefix', async () => {
+  const { cwd, remote } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(cwd, 'git', 'tag', '1.0.0', 'HEAD~2')
+  const requests: GitHubRequest[] = []
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      token: 'secret',
+      tagPrefix: '',
+    },
+    {
+      cwd,
+      fetch: githubReleaseFetch({ requests, tag: '1.1.0' }),
+    },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'log', '-1', '--format=%s')).stdout.trim(),
+  ).toBe('chore(release): 1.1.0')
+  expect(
+    (await command(remote, 'git', 'tag', '--list', '1.1.0')).stdout.trim(),
+  ).toBe('1.1.0')
+  expect(
+    (await command(remote, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim(),
+  ).toBe('')
+  const publish = requests.find(request => request.method === 'POST')
+  expect(publish?.body).toMatchObject({
+    tag_name: '1.1.0',
+    name: '1.1.0',
+  })
+  expect(publish?.body?.body).toContain(
+    'https://github.com/example/project/compare/1.0.0...1.1.0',
+  )
+})
+
 it('skips provider requests without a token', async () => {
   const { cwd, remote } = await createReleaseRepository()
   let output = ''
@@ -514,6 +552,52 @@ it('compares a stable release with the previous stable tag', async () => {
     {
       cwd,
       fetch: githubReleaseFetch({
+        onPublish: body => releaseBody = String(body.body),
+      }),
+    },
+  )
+
+  expect(releaseBody).toContain('Add CLI')
+  expect(releaseBody).toContain('Stabilize release')
+})
+
+it('compares a custom-prefixed stable release with the previous stable tag', async () => {
+  const { cwd } = await createReleaseRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(cwd, 'git', 'tag', 'package@1.0.0', 'HEAD~2')
+  await command(
+    cwd,
+    'git',
+    'tag',
+    '-a',
+    'package@1.1.0-beta.1',
+    '-m',
+    'package@1.1.0-beta.1',
+  )
+  await commit(cwd, 'fix: stabilize release')
+  await command(
+    cwd,
+    'git',
+    'tag',
+    '-a',
+    'package@1.1.0',
+    '-m',
+    'package@1.1.0',
+  )
+  await command(cwd, 'git', 'push', 'origin', 'HEAD', '--tags')
+  let releaseBody = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      token: 'secret',
+      tagPrefix: 'package@',
+    },
+    {
+      cwd,
+      fetch: githubReleaseFetch({
+        tag: 'package@1.1.0',
         onPublish: body => releaseBody = String(body.body),
       }),
     },

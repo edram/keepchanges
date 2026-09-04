@@ -90,7 +90,9 @@ export function createChangesOptions(options: TestOptions, environment: CreateCh
 export function githubReleaseFetch(options: {
   requests?: GitHubRequest[]
   onPublish?: (body: Record<string, unknown>) => void
+  tag?: string
 } = {}): typeof globalThis.fetch {
+  const tag = options.tag ?? 'v1.1.0'
   return async (input, init) => {
     const url = String(input)
     const method = init?.method || 'GET'
@@ -98,11 +100,11 @@ export function githubReleaseFetch(options: {
     options.requests?.push({ url, method, body })
     if (url.includes('/search/users'))
       return Response.json({ items: [{ login: 'test-author' }] })
-    if (url.endsWith('/releases/tags/v1.1.0'))
+    if (url.endsWith(`/releases/tags/${encodeURIComponent(tag)}`))
       return new Response(null, { status: 404 })
     if ((url.endsWith('/releases') && method === 'POST') || (url.endsWith('/releases/42') && method === 'PATCH')) {
       options.onPublish?.(body)
-      return Response.json({ html_url: 'https://github.com/example/project/releases/tag/v1.1.0' })
+      return Response.json({ html_url: `https://github.com/example/project/releases/tag/${tag}` })
     }
     throw new Error(`Unexpected request: ${method} ${url}`)
   }

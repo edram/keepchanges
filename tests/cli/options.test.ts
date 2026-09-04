@@ -12,6 +12,7 @@ it('normalizes CLI arguments into command options', () => {
     commit: true,
     author: 'Release Author <release@example.com>',
     token: 'secret',
+    tagPrefix: 'package@',
     emoji: false,
     capitalize: false,
     group: false,
@@ -26,6 +27,7 @@ it('normalizes CLI arguments into command options', () => {
     release: false,
     author: 'Release Author <release@example.com>',
     token: 'secret',
+    tagPrefix: 'package@',
     name: undefined,
     draft: false,
     prerelease: undefined,
@@ -47,6 +49,7 @@ it('uses centralized CLI and changelog defaults', () => {
     release: defaultConfig.cli.release,
     author: defaultConfig.cli.author,
     token: undefined,
+    tagPrefix: defaultConfig.cli.tagPrefix,
     name: undefined,
     draft: defaultConfig.cli.draft,
     prerelease: undefined,
@@ -54,6 +57,10 @@ it('uses centralized CLI and changelog defaults', () => {
     capitalize: defaultConfig.changelog.capitalize,
     group: defaultConfig.changelog.group,
   })
+})
+
+it('supports tags without a prefix', () => {
+  expect(resolveOptions('1.1.0', { tagPrefix: false }).tagPrefix).toBe('')
 })
 
 describe('cli validation', () => {

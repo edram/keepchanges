@@ -199,6 +199,68 @@ it('uses explicit ranges, repository metadata, and style options', async () => {
   )
 })
 
+it.each([
+  { prefix: 'v', previousTag: 'v1.0.0', currentTag: 'v1.1.0' },
+  {
+    prefix: 'package@',
+    previousTag: 'package@1.0.0',
+    currentTag: 'package@1.1.0',
+  },
+])('resolves version ranges with the "$prefix" tag prefix', async ({
+  prefix,
+  previousTag,
+  currentTag,
+}) => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(cwd, 'git', 'tag', previousTag, 'HEAD~1')
+  await command(cwd, 'git', 'tag', currentTag, 'HEAD')
+  await command(
+    cwd,
+    'git',
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:example/project.git',
+  )
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      from: '1.0.0',
+      to: '1.1.0',
+      tagPrefix: prefix,
+      dry: true,
+    },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain(`${previousTag} -> ${currentTag} (1 commits)`)
+  expect(output).toContain(
+    `https://github.com/example/project/compare/${previousTag}...${currentTag}`,
+  )
+})
+
+it('finds the latest version tag with the configured prefix', async () => {
+  const cwd = await createRepository()
+  await command(cwd, 'git', 'tag', '--delete', 'v1.0.0')
+  await command(cwd, 'git', 'tag', 'package@1.0.0', 'HEAD~1')
+  await command(cwd, 'git', 'tag', 'other@2.0.0', 'HEAD')
+  let output = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      tagPrefix: 'package@',
+      dry: true,
+    },
+    { cwd, stdout: value => output += value },
+  )
+
+  expect(output).toContain('package@1.0.0 -> package@1.1.0 (1 commits)')
+})
+
 it('rejects a commit generated from a ref other than HEAD', async () => {
   const cwd = await createRepository()
 

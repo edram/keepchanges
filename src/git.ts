@@ -1,11 +1,17 @@
 import type { RepositoryAuthor } from './repository'
 import { x } from 'tinyexec'
+import { normalizeFull } from 'verkit'
 
 export interface RawCommit {
   hash: string
   subject: string
   body: string
   author: RepositoryAuthor
+}
+
+function versionTagPattern(tagPrefix: string): string {
+  const escapedPrefix = tagPrefix.replace(/[\\*?[\]]/g, '\\$&')
+  return `${escapedPrefix}[0-9]*`
 }
 
 export async function git(cwd: string, ...args: string[]): Promise<string> {
@@ -20,10 +26,16 @@ export async function git(cwd: string, ...args: string[]): Promise<string> {
   return result.stdout
 }
 
-export async function getLatestTag(cwd: string): Promise<string> {
+export async function getLatestTag(
+  cwd: string,
+  tagPrefix?: string,
+): Promise<string> {
+  const args = ['describe', '--tags', '--abbrev=0']
+  if (tagPrefix !== undefined)
+    args.push('--match', versionTagPattern(tagPrefix))
   const result = await x(
     'git',
-    ['describe', '--tags', '--abbrev=0'],
+    args,
     { nodeOptions: { cwd } },
   )
   return result.stdout.trim()
@@ -38,12 +50,33 @@ export async function getTagCommit(
     .catch(() => undefined)
 }
 
+export async function resolveVersionRef(
+  cwd: string,
+  ref: string,
+  tagPrefix: string,
+): Promise<string> {
+  const version = normalizeFull(ref)
+  if (!version)
+    return ref
+
+  const candidates = [...new Set([`${tagPrefix}${version}`, ref])]
+  for (const candidate of candidates) {
+    const commit = await getTagCommit(cwd, `refs/tags/${candidate}`)
+    if (commit)
+      return candidate
+  }
+
+  return ref
+}
+
 export async function getPreviousTag(
   cwd: string,
   tag: string,
   releaseRef: string,
+  tagPrefix: string,
 ): Promise<string> {
-  if (!tag.includes('-')) {
+  const releaseVersion = normalizeFull(tag.slice(tagPrefix.length))
+  if (releaseVersion && !releaseVersion.includes('-')) {
     const tags = await git(
       cwd,
       'tag',
@@ -54,16 +87,25 @@ export async function getPreviousTag(
     const previousStable = tags
       .trim()
       .split('\n')
-      .find(candidate =>
-        candidate !== tag && /^v?\d+\.\d+\.\d+$/.test(candidate),
-      )
+      .find((candidate) => {
+        if (candidate === tag || !candidate.startsWith(tagPrefix))
+          return false
+        const version = normalizeFull(candidate.slice(tagPrefix.length))
+        return Boolean(version && !version.includes('-'))
+      })
     if (previousStable)
       return previousStable
   }
 
-  return git(cwd, 'describe', '--tags', '--abbrev=0', `${releaseRef}^`)
-    .then(output => output.trim())
-    .catch(() => '')
+  return git(
+    cwd,
+    'describe',
+    '--tags',
+    '--abbrev=0',
+    '--match',
+    versionTagPattern(tagPrefix),
+    `${releaseRef}^`,
+  ).then(output => output.trim()).catch(() => '')
 }
 
 export async function getRemoteTagCommit(

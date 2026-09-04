@@ -9,6 +9,7 @@ import type { ChangesPreview } from './output'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import ansis from 'ansis'
+import { normalizeFull } from 'verkit'
 import {
   generateChangelog,
   hasRelease,
@@ -25,6 +26,7 @@ import {
   getTagCommit,
   git,
   readGitCommits,
+  resolveVersionRef,
 } from '../git'
 import { resolveRepository } from '../repository'
 import { updateVersion } from '../version'
@@ -58,7 +60,7 @@ export async function createChanges(
   const env = environment.env ?? process.env
   const stdout = environment.stdout ?? (value => process.stdout.write(value))
   const colors = environment.colors ?? ansis
-  const tag = `v${options.version}`
+  const tag = `${options.tagPrefix}${options.version}`
   const repository = await resolveRepository(
     environment.cwd,
     options.repository,
@@ -102,22 +104,35 @@ export async function createChanges(
 
   const from = options.from ?? (
     taggedCommit
-      ? await getPreviousTag(environment.cwd, tag, releaseRef!)
-      : await getLatestTag(environment.cwd)
+      ? await getPreviousTag(
+          environment.cwd,
+          tag,
+          releaseRef!,
+          options.tagPrefix,
+        )
+      : await getLatestTag(environment.cwd, options.tagPrefix)
   )
   const to = releaseRef || options.to
-  const comparisonFrom = from || (
+  const resolvedFrom = from
+    ? await resolveVersionRef(environment.cwd, from, options.tagPrefix)
+    : ''
+  const resolvedTo = await resolveVersionRef(
+    environment.cwd,
+    to,
+    options.tagPrefix,
+  )
+  const comparisonFrom = resolvedFrom || (
     repository
       ? await git(
           environment.cwd,
           'rev-list',
           '--max-parents=0',
-          to,
+          resolvedTo,
         ).then(value => value.trim())
       : ''
   )
   const commits = parseCommits(
-    await readGitCommits(environment.cwd, from, to),
+    await readGitCommits(environment.cwd, resolvedFrom, resolvedTo),
   )
 
   if (token && repository) {
@@ -139,6 +154,7 @@ export async function createChanges(
     commits,
     repository,
     comparisonFrom,
+    comparisonTo: normalizeFull(options.to) ? resolvedTo : tag,
   }, style)
   const repositoryRelease: RepositoryRelease = {
     tag,
@@ -148,7 +164,7 @@ export async function createChanges(
     draft: options.draft,
   }
   const preview: ChangesPreview = {
-    from: from || comparisonFrom,
+    from: resolvedFrom || comparisonFrom,
     tag,
     commitCount: commits.length,
     body,
@@ -202,6 +218,7 @@ export async function createChanges(
       outputPath,
       versionPath,
       releaseExists,
+      tag,
     )
   }
 
@@ -251,6 +268,7 @@ async function commitReleaseFiles(
   outputPath: string,
   versionPath: string | undefined,
   releaseExists: boolean,
+  tag: string,
 ): Promise<void> {
   const releasePaths = [outputPath, versionPath].filter(
     path => path !== undefined,
@@ -276,8 +294,8 @@ async function commitReleaseFiles(
       )
     : ''
   const commitMessage = versionPath && !versionChanges.trim()
-    ? `docs(changelog): ${releaseExists ? 'update' : 'add'} v${options.version} release notes`
-    : `chore(release): v${options.version}`
+    ? `docs(changelog): ${releaseExists ? 'update' : 'add'} ${tag} release notes`
+    : `chore(release): ${tag}`
   await git(
     cwd,
     ...resolveGitIdentity(options.author),

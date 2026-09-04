@@ -160,6 +160,23 @@ describe('generateChangelog', () => {
     )
   })
 
+  it('links comparisons to a custom version tag', () => {
+    const repository = githubRepository.parse(
+      'git@github.com:example/project.git',
+    )!
+    const { body } = generateChangelog({
+      version: '1.1.0',
+      commits: [commit()],
+      repository,
+      comparisonFrom: 'package@1.0.0',
+      comparisonTo: 'package@1.1.0',
+    })
+
+    expect(body).toContain(
+      '[View changes on GitHub](https://github.com/example/project/compare/package@1.0.0...package@1.1.0)',
+    )
+  })
+
   it('renders a fallback when there are no significant changes', () => {
     const { body } = changelog(
       '1.1.0',

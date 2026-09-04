@@ -14,6 +14,7 @@ export interface GenerateChangelogOptions {
   commits: Commit[]
   repository?: Repository
   comparisonFrom?: string
+  comparisonTo?: string
 }
 
 export interface GeneratedChangelog {
@@ -51,7 +52,7 @@ export function generateChangelog(
     ...(options.repository && options.comparisonFrom
       ? [
           '',
-          `##### &nbsp;&nbsp;&nbsp;&nbsp;[${config.messages.viewChanges.replace('{provider}', options.repository.provider.name)}](${options.repository.provider.compareUrl(options.repository, options.comparisonFrom, `v${options.version}`)})`,
+          `##### &nbsp;&nbsp;&nbsp;&nbsp;[${config.messages.viewChanges.replace('{provider}', options.repository.provider.name)}](${options.repository.provider.compareUrl(options.repository, options.comparisonFrom, options.comparisonTo ?? `v${options.version}`)})`,
         ]
       : []),
   ].join('\n').trim()

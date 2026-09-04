@@ -12,6 +12,7 @@ export interface Options {
   release: boolean
   author: string
   token?: string
+  tagPrefix: string
   name?: string
   draft: boolean
   prerelease?: boolean
@@ -20,9 +21,15 @@ export interface Options {
   group: boolean
 }
 
+export type UnresolvedOptions = Partial<
+  Omit<Options, 'version' | 'tagPrefix'>
+> & {
+  tagPrefix?: string | boolean
+}
+
 export function resolveOptions(
   versionArgument: string | undefined,
-  options: Partial<Omit<Options, 'version'>>,
+  options: UnresolvedOptions,
 ): Options {
   if (!versionArgument)
     throw new Error('A release version is required')
@@ -33,6 +40,12 @@ export function resolveOptions(
 
   const commit = options.commit ?? defaultConfig.cli.commit
   const release = options.release ?? defaultConfig.cli.release
+  let tagPrefix = defaultConfig.cli.tagPrefix
+  if (typeof options.tagPrefix === 'string')
+    tagPrefix = options.tagPrefix
+  else if (options.tagPrefix === false)
+    tagPrefix = ''
+
   if (options.to !== undefined && release)
     throw new Error('--to cannot be used with --release')
   if (options.author !== undefined && !commit && !release)
@@ -59,6 +72,7 @@ export function resolveOptions(
     release,
     author: options.author ?? defaultConfig.cli.author,
     token: options.token,
+    tagPrefix,
     name: options.name,
     draft: options.draft ?? defaultConfig.cli.draft,
     prerelease: options.prerelease,

@@ -48,9 +48,9 @@ npx keepchanges <version> [options]
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `<version>` | 必填 | 要生成的版本号。可以传入 `1.1.0` 或 `v1.1.0`；生成的标题和 tag 统一使用 `v1.1.0`。包含 `-` 的版本会作为预发布版本，例如 `1.1.0-beta.1`。 |
-| `--from <ref>` | 最近的 tag | 指定读取 commit 的起始 Git ref，并覆盖自动选择结果。 |
-| `--to <ref>` | `HEAD` | 指定读取 commit 的结束 Git ref。不能与 `--release` 一起使用；与 `--commit` 一起使用时必须指向当前 `HEAD`。 |
+| `<version>` | 必填 | 要生成的版本号。可以传入 `1.1.0` 或 `v1.1.0`。包含 `-` 的版本会作为预发布版本，例如 `1.1.0-beta.1`。 |
+| `--from <ref>` | 匹配前缀的最近 tag | 指定读取 commit 的起始 Git ref，并覆盖自动选择结果。`1.0.0` 这类版本会自动应用配置的 tag 前缀。 |
+| `--to <ref>` | `HEAD` | 指定读取 commit 的结束 Git ref。`1.1.0` 这类版本会自动应用配置的 tag 前缀。不能与 `--release` 一起使用；与 `--commit` 一起使用时必须指向当前 `HEAD`。 |
 | `--repository <source>` | 自动检测 | 指定 `owner/repo` 格式的 GitHub 仓库或 GitHub/Gitea 完整 URL。优先级高于 `package.json` 和 `origin`。 |
 | `--output <path>` | `CHANGELOG.md` | 指定 changelog 文件路径。相对路径以当前工作目录为基准。 |
 | `--dry` | `false` | 输出当前版本预览，不写入文件，也不执行 commit、tag、push 或发布 API。 |
@@ -58,6 +58,8 @@ npx keepchanges <version> [options]
 | `--release` | `false` | 执行完整发布流程：写入文件、创建或复用 release commit、创建 annotated tag、推送 `HEAD` 和 tag，然后创建或更新仓库 Release。该参数隐含 `--commit`。 |
 | `--author <author>` | release bot | 设置自动创建的 release commit 作者，格式必须为 `"Name <email>"`；需要与 `--commit` 或 `--release` 一起使用。 |
 | `-t, --token <token>` | 环境变量 | 仓库访问令牌，用于解析作者及发布 Release。GitHub 优先级为 `--token`、`GITHUB_TOKEN`、`GH_TOKEN`；Gitea 使用 `GITEA_TOKEN`。 |
+| `--tag-prefix <prefix>` | `v` | 设置查找和创建版本 tag 时使用的前缀，例如 `package@`。 |
+| `--no-tag-prefix` | `false` | 查找和创建不带前缀的版本 tag。 |
 | `--name <name>` | 版本 tag | 设置远程 Release 名称；仅适用于 `--release`。 |
 | `-d, --draft` | `false` | 创建 draft Release；仅适用于 `--release`。 |
 | `--prerelease` | 根据版本推断 | 显式标记为 prerelease；默认根据版本是否包含 `-` 推断，仅适用于 `--release`。 |
@@ -98,6 +100,18 @@ npx keepchanges 1.1.0 --commit \
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
+使用无前缀版本 tag：
+
+```bash
+npx keepchanges 1.1.0 --no-tag-prefix
+```
+
+使用 package 专属 tag 前缀：
+
+```bash
+npx keepchanges 1.1.0 --tag-prefix 'package@'
+```
+
 预览 Release，不写文件、不提交、不创建 tag、不推送且不调用发布 API：
 
 ```bash
@@ -122,6 +136,11 @@ GitHub 地址会被自动识别。自托管 Gitea 需要在 `package.json` 中�
 识别到仓库后，每条记录会包含 commit 和 PR 链接，末尾会包含版本对比链接。
 GitHub 和 Gitea 均支持作者解析和 Release 发布；Gitea 使用 `GITEA_TOKEN`
 解析 commit 主作者并发布 Release。
+
+版本 tag 默认使用 `v` 前缀。配置的前缀会统一应用于新 tag、已有 tag 查找、
+版本形式的 `--from` 和 `--to`、比较链接及仓库 Release 名称。分支名、commit
+hash、`HEAD` 等非版本 ref 保持不变。自动查找 tag 时只考虑配置的前缀，因此
+彼此独立的 tag 序列不会相互影响。
 
 默认使用 Git 提交中的作者名，并将 `Co-Authored-By` 参与者一起写入记录，bot
 账号会被忽略。提供对应平台的 token 后，会尝试将邮箱解析为用户名。

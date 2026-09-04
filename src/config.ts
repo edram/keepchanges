@@ -34,6 +34,7 @@ export interface KeepChangesConfig {
     commit: boolean
     release: boolean
     author: string
+    tagPrefix: string
     draft: boolean
   }
   changelog: ChangelogConfig
@@ -47,6 +48,7 @@ export const defaultConfig = {
     commit: false,
     release: false,
     author: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>',
+    tagPrefix: 'v',
     draft: false,
   },
   changelog: {

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import type { Options } from './cli/options'
+import type { UnresolvedOptions } from './cli/options'
 import process from 'node:process'
 import { cac } from 'cac'
 import { version } from '../package.json'
 import { createChanges } from './cli/createChanges'
 import { resolveOptions } from './cli/options'
+import { defaultConfig } from './config'
 
 const cli = cac('keepchanges')
   .option('--from <ref>', 'Start Git reference')
@@ -17,6 +18,11 @@ const cli = cac('keepchanges')
   .option('--release', 'Publish a repository release')
   .option('--author <author>', 'Commit author in "Name <email>" format')
   .option('-t, --token <token>', 'Repository token')
+  .option(
+    '--tag-prefix [prefix]',
+    'Prefix used for version tags; use --no-tag-prefix to disable',
+    { default: defaultConfig.cli.tagPrefix },
+  )
   .option('--name <name>', 'Repository release name')
   .option('-d, --draft', 'Create a draft repository release')
   .option('--prerelease', 'Mark the repository release as prerelease')
@@ -29,7 +35,7 @@ cli
   .usage('<version> [options]')
   .action(async (
     versionArgument,
-    options: Partial<Omit<Options, 'version'>>,
+    options: UnresolvedOptions,
   ) => {
     await createChanges(
       resolveOptions(versionArgument, options),

@@ -49,9 +49,9 @@ npx keepchanges <version> [options]
 
 | Argument or option | Default | Description |
 | --- | --- | --- |
-| `<version>` | Required | Version to generate. Accepts `1.1.0` or `v1.1.0`; headings and tags use `v1.1.0`. A version containing `-`, such as `1.1.0-beta.1`, is treated as a prerelease. |
-| `--from <ref>` | Latest tag | Overrides the starting Git ref used to read commits. |
-| `--to <ref>` | `HEAD` | Sets the ending Git ref. It cannot be combined with `--release`, and must resolve to the current `HEAD` when used with `--commit`. |
+| `<version>` | Required | Version to generate. Accepts `1.1.0` or `v1.1.0`. A version containing `-`, such as `1.1.0-beta.1`, is treated as a prerelease. |
+| `--from <ref>` | Latest matching tag | Overrides the starting Git ref used to read commits. A version such as `1.0.0` uses the configured tag prefix. |
+| `--to <ref>` | `HEAD` | Sets the ending Git ref. A version such as `1.1.0` uses the configured tag prefix. It cannot be combined with `--release`, and must resolve to the current `HEAD` when used with `--commit`. |
 | `--repository <source>` | Auto-detected | Sets a GitHub `owner/repo` slug or a complete GitHub/Gitea URL. It takes precedence over `package.json` and `origin`. |
 | `--output <path>` | `CHANGELOG.md` | Sets the changelog file path. Relative paths are resolved from the current working directory. |
 | `--dry` | `false` | Prints the current release preview without writing files or performing commit, tag, push, or release API mutations. |
@@ -59,6 +59,8 @@ npx keepchanges <version> [options]
 | `--release` | `false` | Runs the complete release flow: writes files, creates or reuses a release commit, creates an annotated tag, pushes `HEAD` and the tag, then creates or updates the repository Release. This implies `--commit`. |
 | `--author <author>` | Release bot | Sets the generated release commit author in `"Name <email>"` format; requires `--commit` or `--release`. |
 | `-t, --token <token>` | Environment | Resolves authors and publishes Releases. GitHub precedence is `--token`, `GITHUB_TOKEN`, then `GH_TOKEN`; Gitea uses `GITEA_TOKEN`. |
+| `--tag-prefix <prefix>` | `v` | Sets the prefix used to find and create version tags, such as `package@`. |
+| `--no-tag-prefix` | `false` | Finds and creates version tags without a prefix. |
 | `--name <name>` | Version tag | Sets the remote Release name; only valid with `--release`. |
 | `-d, --draft` | `false` | Creates a draft Release; only valid with `--release`. |
 | `--prerelease` | Inferred | Explicitly marks a prerelease. By default it is inferred from `-` in the version; only valid with `--release`. |
@@ -99,6 +101,18 @@ Create a GitHub Release:
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
+Use version tags without a prefix:
+
+```bash
+npx keepchanges 1.1.0 --no-tag-prefix
+```
+
+Use a package-specific tag prefix:
+
+```bash
+npx keepchanges 1.1.0 --tag-prefix 'package@'
+```
+
 Preview a Release without writing, committing, tagging, pushing, or calling the
 release API:
 
@@ -126,6 +140,12 @@ When a repository is detected, entries include commit and pull request links,
 and the release ends with a version comparison link. GitHub and Gitea both
 support author resolution and Release publishing. Gitea uses `GITEA_TOKEN` to
 resolve primary commit authors and publish Releases.
+
+Version tags use the `v` prefix by default. The configured prefix applies to
+new tags, existing-tag lookup, version-shaped `--from` and `--to` values,
+comparison links, and repository Release names. Branch names, commit hashes,
+`HEAD`, and other non-version refs are used unchanged. Tag lookup only considers
+the configured prefix, so independent tag sequences do not affect each other.
 
 Entries use Git author names by default and include `Co-Authored-By`
 participants. Bot accounts are omitted. With the corresponding provider token,
