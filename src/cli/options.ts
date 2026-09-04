@@ -24,7 +24,7 @@ export interface Options {
 export type UnresolvedOptions = Partial<
   Omit<Options, 'version' | 'tagPrefix'>
 > & {
-  tagPrefix?: string | boolean
+  tagPrefix?: string | false
 }
 
 export function resolveOptions(

@@ -18,9 +18,10 @@ const cli = cac('keepchanges')
   .option('--release', 'Publish a repository release')
   .option('--author <author>', 'Commit author in "Name <email>" format')
   .option('-t, --token <token>', 'Repository token')
+  .option('--no-tag-prefix', 'Create version tags without a prefix')
   .option(
-    '--tag-prefix [prefix]',
-    'Prefix used for version tags; use --no-tag-prefix to disable',
+    '--tag-prefix <prefix>',
+    'Prefix used for version tags',
     { default: defaultConfig.cli.tagPrefix },
   )
   .option('--name <name>', 'Repository release name')
@@ -31,7 +32,7 @@ const cli = cac('keepchanges')
   .option('--group', 'Group repeated commit scopes')
 
 cli
-  .command('[version]')
+  .command('<version>')
   .usage('<version> [options]')
   .action(async (
     versionArgument,
@@ -45,4 +46,13 @@ cli
 
 cli.help()
 cli.version(version)
-cli.parse()
+
+try {
+  cli.parse(process.argv, { run: false })
+  await cli.runMatchedCommand()
+}
+catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  process.stderr.write(`${message}\n`)
+  process.exitCode = 1
+}
