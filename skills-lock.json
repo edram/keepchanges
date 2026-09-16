@@ -13,6 +13,12 @@
       "skillPath": "skills/coding/SKILL.md",
       "computedHash": "baaa9ffa52633f0d1240be8c180dfcd191b7157196d53152dc91d9bbf4c3f49d"
     },
+    "doc-writer": {
+      "source": "edram/skills",
+      "sourceType": "github",
+      "skillPath": "skills/doc-writer/SKILL.md",
+      "computedHash": "f4b8d14db3d3c8fa0826f077b9c8225b3cce6f9f919a147cc3c188d5cd90e4d9"
+    },
     "git-commit-convention": {
       "source": "edram/skills",
       "sourceType": "github",
