@@ -17,7 +17,10 @@ const cli = cac('keepchanges')
   .option('--commit', 'Commit the changelog and version update')
   .option('--tag', 'Commit, tag, and push without publishing a release')
   .option('--release', 'Publish a repository release')
-  .option('--asset <path>', 'Release asset file, directory, or glob', { type: [] })
+  .option('--asset <path>', 'Release asset file, directory, or glob', {
+    type: [],
+    default: [],
+  })
   .option('--bump', 'Update the project version; --no-bump disables it', {
     default: defaultConfig.cli.bump,
   })

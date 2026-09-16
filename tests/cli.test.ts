@@ -41,3 +41,10 @@ it('reports command failures without a stack trace', async () => {
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toBe('Invalid release version: invalid-version\n')
 })
+
+it('accepts tag creation without release metadata', async () => {
+  const result = await runCli('1.0.3', '--tag', '--dry')
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stderr).toBe('')
+})

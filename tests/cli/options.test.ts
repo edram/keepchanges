@@ -122,6 +122,16 @@ describe('cli validation', () => {
     })).toThrow('--to cannot be used with --tag')
   })
 
+  it('allows tag creation when no release assets were provided', () => {
+    expect(resolveOptions('1.1.0', {
+      tag: true,
+      asset: [],
+    })).toMatchObject({
+      tag: true,
+      assets: [],
+    })
+  })
+
   it.each([
     { name: 'Release 1.1.0' },
     { draft: true },

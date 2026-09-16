@@ -63,7 +63,7 @@ export function resolveOptions(
       options.name !== undefined
       || options.draft !== undefined
       || options.prerelease !== undefined
-      || options.asset !== undefined
+      || (options.asset?.length ?? 0) > 0
     )
   ) {
     throw new Error('--name, --draft, --prerelease, and --asset require --release')
