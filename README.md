@@ -1,6 +1,8 @@
 # keepchanges
 
-Generate and maintain `CHANGELOG.md` from Conventional Commits.
+A release CLI for Conventional Commits. Generate and maintain a changelog, optionally bump
+the project version, create a release commit and Git tag, publish a GitHub or Gitea Release,
+and upload GitHub Release assets.
 
 Inspired by [changelogithub](https://github.com/antfu-collective/changelogithub).
 
@@ -8,18 +10,20 @@ Inspired by [changelogithub](https://github.com/antfu-collective/changelogithub)
 
 ## Features
 
-- Generates release notes from Conventional Commits between the latest Git tag and `HEAD`
-- Reads the complete Git history for a first release
-- Inserts a new release before existing content in `CHANGELOG.md`
-- Updates `package.json#version` for npm projects
-- Adds repository commit links, comparison links, authors, and co-authors
-- Can commit, tag, push, and publish a GitHub or Gitea Release
-- Uploads files or directories as GitHub Release assets
-- Provides a manual release URL when no GitHub/Gitea token is available
+- Generates release notes from Conventional Commits between Git tags
+- Inserts new releases into an existing `CHANGELOG.md` and updates `package.json#version`
+  for npm projects
+- Disables version bumps and changelog writes independently with `--no-bump` and
+  `--no-changelog`
+- Creates release commits and annotated tags, then pushes them to the remote repository
+- Supports building artifacts from a fixed release commit before publishing
+- Creates or updates GitHub and Gitea Releases
+- Uploads files, directories, or glob matches as GitHub Release assets
+- Adds repository links for commits, pull requests, comparisons, authors, and co-authors
 
 The current release includes `feat`, `fix`, `perf`, breaking changes marked with `!`,
-and commits with a `BREAKING CHANGE` or `BREAKING-CHANGE` trailer. Other commit
-types are ignored.
+and commits with a `BREAKING CHANGE` or `BREAKING-CHANGE` trailer. Other commit types
+are ignored.
 
 ## Quick start
 
@@ -37,54 +41,90 @@ The version may also include a leading `v`:
 npx keepchanges v1.1.0
 ```
 
-By default, the command writes `CHANGELOG.md`. For an npm package, it also
-updates `package.json#version` to `1.1.0`, but it does not create a Git commit.
+By default, the command writes `CHANGELOG.md`. For an npm package, it also updates
+`package.json#version` to `1.1.0`, but it does not create a Git commit.
 
-## Command
+## Release workflows
 
-```text
-npx keepchanges <version> [options]
+Combine the release stages to match how your project manages versions and builds artifacts:
+
+| Workflow | Bump version | Write changelog | Build timing | Release sequence |
+| --- | --- | --- | --- | --- |
+| Full version release | Yes | Yes | After creating the release commit | `--tag`, build, then `--release --asset` |
+| Externally managed version | No | Yes | Before release | Build, then `--release --no-bump --asset` |
+| Artifacts only | No | No | Before release | Build, then `--release --no-bump --no-changelog --asset` |
+
+### Full version release
+
+Let keepchanges update the version and changelog, then create the release commit and tag.
+Build from that exact commit before publishing the same tag and uploading its artifacts:
+
+```bash
+npx keepchanges 1.1.0 --tag
+pnpm build
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release --asset dist
 ```
 
-### Arguments and options
+The second command reuses the existing tag. It does not move the tag or commit the artifacts.
 
-| Argument or option | Default | Description |
-| --- | --- | --- |
-| `<version>` | Required | Version to generate. Accepts `1.1.0` or `v1.1.0`. A version containing `-`, such as `1.1.0-beta.1`, is treated as a prerelease. |
-| `--from <ref>` | Inferred from target | Overrides the exclusive starting Git ref used to read commits. Without it, the latest matching tag is used for `HEAD`, or the previous matching tag relative to an explicit `--to`. If no previous tag exists, history starts at the first commit. A version such as `1.0.0` uses the configured tag prefix. |
-| `--to <ref>` | `HEAD` | Sets the ending Git ref. A version such as `1.1.0` uses the configured tag prefix. It cannot be combined with `--tag` or `--release`, and must resolve to the current `HEAD` when used with `--commit`. |
-| `--repository <source>` | Auto-detected | Sets a GitHub `owner/repo` slug or a complete GitHub/Gitea URL. It takes precedence over `package.json` and `origin`. |
-| `--output <path>` | `CHANGELOG.md` | Sets the changelog file path. Relative paths are resolved from the current working directory. |
-| `--dry` | `false` | Prints the current release preview without writing files or performing commit, tag, push, or release API mutations. |
-| `--commit` | `false` | Creates a Git commit after writing. It commits only the changelog and detected version file, using `chore(release): v<version>` by default. |
-| `--tag` | `false` | Writes and commits release files, creates an annotated tag, and pushes `HEAD` and the tag without publishing a repository Release. Use it before building assets from the release commit. |
-| `--release` | `false` | Runs the complete release flow: writes files, creates or reuses a release commit, creates an annotated tag, pushes `HEAD` and the tag, then creates or updates the repository Release. This implies `--commit`. |
-| `--asset <path>` | None | Uploads a file, every file below a directory, or files from a glob to a GitHub Release. Repeat the option for multiple paths. Requires `--release` and a GitHub token. |
-| `--bump` / `--no-bump` | `true` | Controls whether the detected project version file is updated. |
-| `--changelog` / `--no-changelog` | `true` | Controls whether the changelog file is written. Release notes are generated either way. |
-| `--author <author>` | Release bot | Sets the generated release commit author in `"Name <email>"` format; requires `--commit`, `--tag`, or `--release`. |
-| `-t, --token <token>` | Environment | Resolves authors and publishes Releases. GitHub precedence is `--token`, `GITHUB_TOKEN`, then `GH_TOKEN`; Gitea uses `GITEA_TOKEN`. |
-| `--tag-prefix <prefix>` | `v` | Sets the prefix used to find and create version tags, such as `package@`. |
-| `--no-tag-prefix` | `false` | Finds and creates version tags without a prefix. |
-| `--name <name>` | Version tag | Sets the remote Release name; only valid with `--release`. |
-| `-d, --draft` | `false` | Creates a draft Release; only valid with `--release`. |
-| `--prerelease` | Inferred | Explicitly marks a prerelease. By default it is inferred from `-` in the version; only valid with `--release`. |
-| `--emoji` | `true` | Controls section title emojis. As with changelogithub, CAC's `--no-emoji` form disables them. |
-| `--capitalize` | `true` | Controls entry capitalization; `--no-capitalize` disables it. |
-| `--group` | `true` | Groups repeated scopes; `--no-group` disables it. |
+### Changelog without a version bump
 
-## Examples
+If another tool or workflow manages the project version, build first, then let keepchanges
+write the changelog, create the commit and tag, and publish the assets:
 
-Write to a different file:
+```bash
+pnpm build
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release \
+  --no-bump \
+  --asset dist
+```
+
+### Artifacts only
+
+If the release needs neither a version update nor a changelog write, build first, then create
+the tag and Release from the current `HEAD`:
+
+```bash
+pnpm build
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release \
+  --no-bump \
+  --no-changelog \
+  --asset dist
+```
+
+## GitHub Release assets
+
+`--asset` accepts a file, directory, or glob. Directories are traversed recursively, and the
+option is repeatable, so one release can include multiple folders or match sets:
+
+```bash
+GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release \
+  --asset 'packages/*/dist' \
+  --asset artifacts \
+  --asset checksums.txt
+```
+
+Quote globs so keepchanges, rather than the shell, expands them consistently. Before publishing,
+keepchanges verifies that every path exists, every glob matches at least one file, and all final
+file names are unique. Updating an existing Release replaces assets with the same name.
+
+Asset uploads currently support GitHub only and require a GitHub token. Token precedence is
+`--token`, `GITHUB_TOKEN`, then `GH_TOKEN`. Without `--asset`, a regular `--release` can run
+without a token: it commits, tags, and pushes before printing a manual Release URL.
+
+## Common tasks
+
+Write to a different changelog file:
 
 ```bash
 npx keepchanges 1.1.0 --output docs/CHANGELOG.md
 ```
 
-Preview the current release without changing files:
+Preview without changing files or the remote repository:
 
 ```bash
 npx keepchanges 1.1.0 --dry
+npx keepchanges 1.1.0 --release --dry
 ```
 
 Write the changelog, update the version, and create a commit:
@@ -100,74 +140,71 @@ npx keepchanges 1.1.0 --commit \
   --author "Release Author <release@example.com>"
 ```
 
-Create a GitHub Release:
+Create a GitHub Release without assets:
 
 ```bash
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
-Create the release commit and tag, build from that exact commit, then publish
-the GitHub Release with the resulting assets:
-
-```bash
-npx keepchanges 1.1.0 --tag
-pnpm build
-npx keepchanges 1.1.0 --release --asset dist
-```
-
-Build first, then write only the changelog and publish the release with assets:
-
-```bash
-pnpm build
-npx keepchanges 1.1.0 --release --no-bump --asset dist
-```
-
-Build first, then tag and publish without updating a version file or changelog:
-
-```bash
-pnpm build
-npx keepchanges 1.1.0 --release --no-bump --no-changelog --asset dist
-```
-
-Upload assets from a folder glob and another folder. Quote globs so
-keepchanges, rather than the shell, expands them consistently:
-
-```bash
-npx keepchanges 1.1.0 --release \
-  --asset 'packages/*/dist' \
-  --asset artifacts
-```
-
-Use version tags without a prefix:
+Use version tags without a prefix or with a package-specific prefix:
 
 ```bash
 npx keepchanges 1.1.0 --no-tag-prefix
-```
-
-Use a package-specific tag prefix:
-
-```bash
 npx keepchanges 1.1.0 --tag-prefix 'package@'
 ```
 
-Rebuild a historical release without specifying its previous tag:
+Regenerate a historical release:
 
 ```bash
 npx keepchanges 1.0.0 --to 1.0.0 --dry
 ```
 
-Preview a Release without writing, committing, tagging, pushing, or calling the
-release API:
+## Command reference
 
-```bash
-npx keepchanges 1.1.0 --release --dry
+```text
+npx keepchanges <version> [options]
 ```
 
-## Generation and release behavior
+| Argument or option | Default | Description |
+| --- | --- | --- |
+| `<version>` | Required | Version to generate, such as `1.1.0`, `v1.1.0`, or `1.1.0-beta.1`. |
+| `--from <ref>` | Inferred from target | Sets the exclusive starting Git ref used to read commits. |
+| `--to <ref>` | `HEAD` | Sets the ending Git ref. Cannot be combined with `--tag` or `--release`. |
+| `--repository <source>` | Auto-detected | Sets a GitHub `owner/repo` slug or complete GitHub/Gitea URL. |
+| `--output <path>` | `CHANGELOG.md` | Sets the changelog file path. |
+| `--dry` | `false` | Prints a preview without writing files or performing commit, tag, push, or release API mutations. |
+| `--commit` | `false` | Creates a Git commit after writing. |
+| `--tag` | `false` | Writes, commits, creates an annotated tag, and pushes without creating a repository Release. |
+| `--release` | `false` | Commits, tags, pushes, and creates or updates a repository Release; implies `--commit`. |
+| `--asset <path>` | None | Uploads GitHub Release assets from files, directories, or globs. Repeatable; requires `--release` and a GitHub token. |
+| `--bump` / `--no-bump` | `true` | Controls whether the detected project version file is updated. |
+| `--changelog` / `--no-changelog` | `true` | Controls whether the changelog is written. Release notes are generated either way. |
+| `--author <author>` | Release bot | Sets the release commit author in `"Name <email>"` format. |
+| `-t, --token <token>` | Environment | Sets the repository access token used to resolve authors and publish Releases. |
+| `--tag-prefix <prefix>` | `v` | Sets the prefix used to find and create version tags. |
+| `--no-tag-prefix` | `false` | Finds and creates version tags without a prefix. |
+| `--name <name>` | Version tag | Sets the remote Release name; only valid with `--release`. |
+| `-d, --draft` | `false` | Creates a draft Release; only valid with `--release`. |
+| `--prerelease` | Inferred | Marks a prerelease; only valid with `--release`. |
+| `--emoji` / `--no-emoji` | `true` | Controls section title emojis. |
+| `--capitalize` / `--no-capitalize` | `true` | Controls changelog entry capitalization. |
+| `--group` / `--no-group` | `true` | Controls grouping for repeated scopes. |
 
-The repository is read from `--repository`, then `package.json#repository`, and
-finally the Git `origin`. GitHub URLs are detected automatically. A self-hosted Gitea repository
-must be declared explicitly in `package.json`:
+## Behavior
+
+### Changelog and repository metadata
+
+Without `--from`, keepchanges finds the nearest earlier version tag that matches the configured
+tag prefix. If no earlier tag exists, it reads from the first reachable commit. Stable releases
+compare with the previous stable tag; prereleases compare with the nearest previous tag.
+
+The repository is resolved from `--repository`, then `package.json#repository`, and finally the
+Git `origin`. When a repository is available, entries include commit and pull request links, and
+the release ends with a version comparison link. Entries use Git author names and include
+`Co-Authored-By` participants. With a provider token, keepchanges attempts to resolve email
+addresses to usernames. Bot accounts are omitted.
+
+A self-hosted Gitea repository must be declared explicitly in `package.json`:
 
 ```json
 {
@@ -179,67 +216,38 @@ must be declared explicitly in `package.json`:
 }
 ```
 
-When a repository is detected, entries include commit and pull request links,
-and the release ends with a version comparison link. GitHub and Gitea both
-support author resolution and Release publishing. Gitea uses `GITEA_TOKEN` to
-resolve primary commit authors and publish Releases.
+GitHub and Gitea both support author resolution and Release publishing. Gitea uses
+`GITEA_TOKEN`, but does not currently support asset uploads.
 
-Version tags use the `v` prefix by default. The configured prefix applies to
-new tags, existing-tag lookup, version-shaped `--from` and `--to` values,
-comparison links, and repository Release names. Branch names, commit hashes,
-`HEAD`, and other non-version refs are used unchanged. Tag lookup only considers
-the configured prefix, so independent tag sequences do not affect each other.
-When `--to` is provided without `--from`, the CLI finds the previous matching
-tag relative to that target instead of the current `HEAD`. For the first tag in
-a sequence, it reads all commits reachable from the target.
+### Tags and history ranges
 
-Entries use Git author names by default and include `Co-Authored-By`
-participants. Bot accounts are omitted. With the corresponding provider token,
-the CLI attempts to resolve email addresses to usernames.
+Version tags use the `v` prefix by default. The configured prefix applies to tag creation and
+lookup, version-shaped `--from` and `--to` values, comparison links, and Release names. Branch
+names, commit hashes, `HEAD`, and other non-version refs remain unchanged. Tag sequences with
+different prefixes are independent.
 
-`--commit` commits only the changelog and detected version file. Other staged
-and unstaged changes remain untouched.
+When `--to` is provided without `--from`, keepchanges finds the previous matching tag relative
+to that target instead of the current `HEAD`. With `--commit`, `--to` must resolve to the current
+`HEAD`.
 
-`--tag` performs the file update, commit, tag, and push stages without creating
-a repository Release. A later `--release` for the same version reuses that tag,
-so artifacts can be built from the final release commit before being uploaded.
+### Commit and release safety
 
-When the tag does not exist, `--release`:
+`--commit` commits only the changelog and detected version file. Other staged and unstaged
+changes remain untouched.
 
-1. Writes the changelog and updates the version file.
-2. Creates or reuses a release commit.
-3. Creates an annotated tag.
-4. Pushes `HEAD` and the tag to `origin`.
-5. Creates a repository Release, or prints a manual URL without a GitHub/Gitea token.
+`--release` reuses an existing tag, regenerates its Release notes, and creates or updates the
+Release. A remote-only tag is fetched, while a local-only tag is pushed. If local and remote
+tags point to different commits, the command stops without force-updating or moving the tag.
 
-When the tag already exists, `--release` never moves it. It regenerates Release
-notes from the previous version to the existing tag and creates or updates the
-Release. A remote-only tag is fetched, while a local-only tag is pushed. The
-command stops without force-updating when local and remote tags point to
-different commits.
-
-GitHub Release assets are provided with repeatable `--asset` options. Each
-value may be a file, directory, or glob; directories are traversed recursively.
-Every file is uploaded by its base name, so all selected files must have unique
-names. A glob without matches stops before the release tag is created or pushed.
-Updating a Release replaces same-named existing assets. Gitea does not currently
-support assets, and automatic upload requires a GitHub token.
-
-Stable releases compare with the previous stable tag. Prereleases compare with
-the nearest previous tag. With `--release`, `--dry` takes precedence and
-prevents all file writes and remote mutations. Its manual URL opens a new
-Release for a new tag and the edit page for an existing tag.
-
-> [!NOTE]
-> A regular `--release` without a token still writes files, commits, tags, and
-> pushes before providing the manual Release URL. Use `--release --dry`
-> for a completely non-mutating preview.
+`--dry` takes precedence over other options and prevents all file writes and remote mutations.
+Without `--asset` and a provider token, `--release` still writes locally, commits, tags, and
+pushes before printing a URL for manually creating or editing the Release.
 
 ## Programmatic API
 
-The package root exports `generateChangelog`, the commit parser, default config,
-and core types. The CLI is only available as the `keepchanges` binary, while
-programmatic callers can provide changelog style overrides:
+The package root exports `generateChangelog`, the commit parser, default config, and core types.
+The CLI is available only as the `keepchanges` binary. Programmatic callers can override the
+changelog style:
 
 ```ts
 import { generateChangelog } from 'keepchanges'
