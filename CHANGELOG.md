@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.3
+
+### 🚀 Features
+
+- **cli**: Support disabling bump and changelog &nbsp;-&nbsp; by **edram** and **Codex GPT-5** [<samp>(44eee)</samp>](https://github.com/edram/keepchanges/commit/44eee1a)
+- **release**: Upload GitHub release assets &nbsp;-&nbsp; by **edram** and **Codex GPT-5** [<samp>(684a0)</samp>](https://github.com/edram/keepchanges/commit/684a0a1)
+
+### 🐞 Bug Fixes
+
+- **cli**: Allow tags without release assets &nbsp;-&nbsp; by **edram** and **Codex GPT-5** [<samp>(e843b)</samp>](https://github.com/edram/keepchanges/commit/e843b2c)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.2...v1.0.3)
+
 ## v1.0.2
 
 ### 🐞 Bug Fixes
