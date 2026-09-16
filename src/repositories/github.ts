@@ -4,6 +4,7 @@ import { collectRepositoryAuthors } from '../repository'
 export const githubRepository: RepositoryProvider = {
   name: 'GitHub',
   tokenEnv: 'GITHUB_TOKEN',
+  supportsReleaseAssets: true,
 
   parse(source) {
     const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(source)
@@ -102,11 +103,16 @@ export const githubRepository: RepositoryProvider = {
     let url = releasesUrl
     let method = 'POST'
     let action: 'created' | 'updated' = 'created'
+    let existingAssets: Array<{ id: number, name: string }> = []
     if (existing.ok) {
-      const data = await existing.json() as { id: number }
+      const data = await existing.json() as {
+        id: number
+        assets?: Array<{ id: number, name: string }>
+      }
       url = `${releasesUrl}/${data.id}`
       method = 'PATCH'
       action = 'updated'
+      existingAssets = data.assets ?? []
     }
     else if (existing.status !== 404) {
       throw new Error(`GitHub release lookup failed (${existing.status})`)
@@ -126,7 +132,49 @@ export const githubRepository: RepositoryProvider = {
     if (!response.ok)
       throw new Error(`GitHub release publishing failed (${response.status})`)
 
-    const data = await response.json() as { html_url: string }
+    const data = await response.json() as {
+      html_url: string
+      upload_url?: string
+    }
+    if (release.assets?.length) {
+      if (!data.upload_url)
+        throw new Error('GitHub release response did not include an upload URL')
+
+      const uploadUrl = data.upload_url.replace(/\{.*$/, '')
+      for (const asset of release.assets) {
+        const existingAsset = existingAssets.find(
+          candidate => candidate.name === asset.name,
+        )
+        if (existingAsset) {
+          const deleteResponse = await fetch(
+            `https://api.github.com/repos/${repository.path}/releases/assets/${existingAsset.id}`,
+            { method: 'DELETE', headers },
+          )
+          if (!deleteResponse.ok) {
+            throw new Error(
+              `GitHub release asset replacement failed for ${asset.name} (${deleteResponse.status})`,
+            )
+          }
+        }
+        const uploadResponse = await fetch(
+          `${uploadUrl}?name=${encodeURIComponent(asset.name)}`,
+          {
+            method: 'POST',
+            headers: {
+              'accept': 'application/vnd.github+json',
+              'authorization': `Bearer ${token}`,
+              'content-type': 'application/octet-stream',
+            },
+            body: asset.data,
+          },
+        )
+        if (!uploadResponse.ok) {
+          throw new Error(
+            `GitHub release asset upload failed for ${asset.name} (${uploadResponse.status})`,
+          )
+        }
+      }
+    }
     return {
       url: data.html_url,
       action,

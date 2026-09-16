@@ -47,6 +47,14 @@ export interface RepositoryRelease {
   body: string
   prerelease: boolean
   draft: boolean
+  assets?: RepositoryReleaseAsset[]
+}
+
+export interface RepositoryReleaseAsset {
+  /** File name shown on the Release; names must be unique within a Release. */
+  name: string
+  /** Exact bytes sent to the repository provider. */
+  data: Uint8Array
 }
 
 export interface RepositoryReleaseResult {
@@ -59,6 +67,7 @@ export type ManualReleaseAction = 'create' | 'edit'
 export interface RepositoryProvider {
   name: string
   tokenEnv: string
+  supportsReleaseAssets?: boolean
   parse: (source: string) => Repository | undefined
   token: (explicit: string | undefined, env: NodeJS.ProcessEnv) => string | undefined
   commitUrl: (repository: Repository, hash: string) => string

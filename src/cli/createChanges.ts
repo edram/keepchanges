@@ -3,12 +3,15 @@ import type {
   ManualReleaseAction,
   Repository,
   RepositoryRelease,
+  RepositoryReleaseAsset,
 } from '../repository'
 import type { Options } from './options'
 import type { ChangesPreview } from './output'
-import { resolve } from 'node:path'
+import { lstat, readdir, readFile } from 'node:fs/promises'
+import { basename, resolve } from 'node:path'
 import process from 'node:process'
 import ansis from 'ansis'
+import { glob, isDynamicPattern } from 'tinyglobby'
 import { normalizeFull } from 'verkit'
 import {
   generateChangelog,
@@ -48,7 +51,7 @@ export async function createChanges(
   options: Options,
   environment: CreateChangesEnvironment,
 ): Promise<void> {
-  if (options.commit && options.to !== defaultConfig.cli.to) {
+  if ((options.commit || options.tag || options.release) && options.to !== defaultConfig.cli.to) {
     const [toCommit, headCommit] = await Promise.all([
       git(environment.cwd, 'rev-parse', options.to).then(value => value.trim()),
       git(environment.cwd, 'rev-parse', 'HEAD').then(value => value.trim()),
@@ -68,12 +71,21 @@ export async function createChanges(
   const token = repository?.provider.token(options.token, env)
 
   validateReleaseSupport(options, repository)
+  if (options.release && !options.dry && options.assets.length && !token) {
+    throw new Error(
+      `A ${repository!.provider.name} token is required to upload release assets`,
+    )
+  }
+  const releaseAssets = options.release && !options.dry && options.assets.length
+    ? await readReleaseAssets(environment.cwd, options.assets)
+    : []
 
-  let taggedCommit = options.release
+  const createsTag = options.tag || options.release
+  let taggedCommit = createsTag
     ? await getTagCommit(environment.cwd, tag)
     : undefined
   let releaseRef = taggedCommit ? tag : undefined
-  const remoteTaggedCommit = options.release
+  const remoteTaggedCommit = createsTag
     ? await getRemoteTagCommit(environment.cwd, tag)
     : undefined
 
@@ -187,7 +199,7 @@ export async function createChanges(
     return
   }
 
-  if (options.release && taggedCommit) {
+  if (createsTag && taggedCommit) {
     if (!remoteTaggedCommit) {
       await git(
         environment.cwd,
@@ -196,12 +208,15 @@ export async function createChanges(
         `refs/tags/${tag}`,
       )
     }
+    if (!options.release)
+      return
     await publishRelease(
       repository!,
       repositoryRelease,
       token,
       preview,
       environment,
+      releaseAssets,
       'edit',
     )
     return
@@ -219,7 +234,7 @@ export async function createChanges(
     ? await updateVersion(environment.cwd, options.version)
     : undefined
 
-  if (options.commit || options.release) {
+  if (options.commit || createsTag) {
     await commitReleaseFiles(
       options,
       environment.cwd,
@@ -230,7 +245,7 @@ export async function createChanges(
     )
   }
 
-  if (options.release) {
+  if (createsTag) {
     const gitIdentity = resolveGitIdentity(options.author)
     await git(
       environment.cwd,
@@ -248,13 +263,16 @@ export async function createChanges(
       'HEAD',
       `refs/tags/${tag}`,
     )
-    await publishRelease(
-      repository!,
-      repositoryRelease,
-      token,
-      preview,
-      environment,
-    )
+    if (options.release) {
+      await publishRelease(
+        repository!,
+        repositoryRelease,
+        token,
+        preview,
+        environment,
+        releaseAssets,
+      )
+    }
   }
 }
 
@@ -268,6 +286,8 @@ function validateReleaseSupport(
     throw new Error('A supported repository is required to release')
   if (!repository.provider.publishRelease && !repository.provider.manualReleaseUrl)
     throw new Error(`${repository.provider.name} does not support releases`)
+  if (options.assets.length && !repository.provider.supportsReleaseAssets)
+    throw new Error(`${repository.provider.name} does not support release assets`)
 }
 
 async function commitReleaseFiles(
@@ -325,6 +345,7 @@ async function publishRelease(
   token: string | undefined,
   preview: ChangesPreview,
   environment: CreateChangesEnvironment,
+  assets: RepositoryReleaseAsset[],
   manualAction: ManualReleaseAction = 'create',
 ): Promise<void> {
   const stdout = environment.stdout ?? (value => process.stdout.write(value))
@@ -349,7 +370,10 @@ async function publishRelease(
 
   const result = await repository.provider.publishRelease(
     repository,
-    release,
+    {
+      ...release,
+      assets,
+    },
     token,
     environment.fetch ?? globalThis.fetch,
   )
@@ -359,6 +383,58 @@ async function publishRelease(
     stdout,
     colors,
   )
+}
+
+async function readReleaseAssets(
+  cwd: string,
+  paths: string[],
+): Promise<Array<{ name: string, data: Uint8Array }>> {
+  const files = new Set<string>()
+
+  async function collect(path: string): Promise<void> {
+    const metadata = await lstat(path).catch(() => undefined)
+    if (!metadata)
+      throw new Error(`Release asset does not exist: ${path}`)
+    if (metadata.isFile()) {
+      files.add(path)
+      return
+    }
+    if (!metadata.isDirectory())
+      throw new Error(`Release asset must be a file or directory: ${path}`)
+
+    const entries = await readdir(path, { withFileTypes: true })
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name)))
+      await collect(resolve(path, entry.name))
+  }
+
+  for (const path of paths) {
+    if (!isDynamicPattern(path)) {
+      await collect(resolve(cwd, path))
+      continue
+    }
+
+    const matches = await glob(path, {
+      absolute: true,
+      cwd,
+      dot: true,
+      expandDirectories: false,
+      followSymbolicLinks: false,
+      onlyFiles: false,
+    })
+    if (!matches.length)
+      throw new Error(`Release asset pattern did not match: ${path}`)
+    for (const match of matches.sort((left, right) => left.localeCompare(right)))
+      await collect(match)
+  }
+
+  const names = new Set<string>()
+  return Promise.all([...files].map(async (path) => {
+    const name = basename(path)
+    if (names.has(name))
+      throw new Error(`Release assets must have unique file names: ${name}`)
+    names.add(name)
+    return { name, data: await readFile(path) }
+  }))
 }
 
 function resolveGitIdentity(author: string): string[] {

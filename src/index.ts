@@ -27,5 +27,6 @@ export type {
   RepositoryCommit,
   RepositoryProvider,
   RepositoryRelease,
+  RepositoryReleaseAsset,
   RepositoryReleaseResult,
 } from './repository'

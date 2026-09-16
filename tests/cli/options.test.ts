@@ -24,7 +24,9 @@ it('normalizes CLI arguments into command options', () => {
     output: 'notes.md',
     dry: true,
     commit: true,
+    tag: defaultConfig.cli.tag,
     release: false,
+    assets: [],
     bump: defaultConfig.cli.bump,
     changelog: defaultConfig.cli.changelog,
     author: 'Release Author <release@example.com>',
@@ -39,6 +41,13 @@ it('normalizes CLI arguments into command options', () => {
   })
 })
 
+it('normalizes repeated release assets', () => {
+  expect(resolveOptions('1.1.0', {
+    release: true,
+    asset: ['dist/cli.mjs', 'dist/index.mjs'],
+  }).assets).toEqual(['dist/cli.mjs', 'dist/index.mjs'])
+})
+
 it('uses centralized CLI and changelog defaults', () => {
   expect(resolveOptions('1.1.0', {})).toEqual({
     version: '1.1.0',
@@ -48,7 +57,9 @@ it('uses centralized CLI and changelog defaults', () => {
     output: defaultConfig.cli.output,
     dry: defaultConfig.cli.dry,
     commit: defaultConfig.cli.commit,
+    tag: defaultConfig.cli.tag,
     release: defaultConfig.cli.release,
+    assets: [],
     bump: defaultConfig.cli.bump,
     changelog: defaultConfig.cli.changelog,
     author: defaultConfig.cli.author,
@@ -96,15 +107,28 @@ describe('cli validation', () => {
   it('requires commit behavior for a custom author', () => {
     expect(() => resolveOptions('1.1.0', {
       author: 'Release Author <release@example.com>',
-    })).toThrow('--author requires --commit or --release')
+    })).toThrow('--author requires --commit, --tag, or --release')
+
+    expect(resolveOptions('1.1.0', {
+      tag: true,
+      author: 'Release Author <release@example.com>',
+    }).author).toBe('Release Author <release@example.com>')
+  })
+
+  it('rejects an explicit end reference when creating a tag', () => {
+    expect(() => resolveOptions('1.1.0', {
+      tag: true,
+      to: 'HEAD',
+    })).toThrow('--to cannot be used with --tag')
   })
 
   it.each([
     { name: 'Release 1.1.0' },
     { draft: true },
     { prerelease: true },
+    { asset: ['dist/cli.mjs'] },
   ])('requires --release for release metadata', (options) => {
     expect(() => resolveOptions('1.1.0', options))
-      .toThrow('--name, --draft, and --prerelease require --release')
+      .toThrow('--name, --draft, --prerelease, and --asset require --release')
   })
 })

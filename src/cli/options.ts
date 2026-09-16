@@ -9,7 +9,9 @@ export interface Options {
   output: string
   dry: boolean
   commit: boolean
+  tag: boolean
   release: boolean
+  assets: string[]
   bump: boolean
   changelog: boolean
   author: string
@@ -24,9 +26,10 @@ export interface Options {
 }
 
 export type UnresolvedOptions = Partial<
-  Omit<Options, 'version' | 'tagPrefix'>
+  Omit<Options, 'version' | 'tagPrefix' | 'assets'>
 > & {
   tagPrefix?: string | false
+  asset?: string[]
 }
 
 export function resolveOptions(
@@ -50,17 +53,20 @@ export function resolveOptions(
 
   if (options.to !== undefined && release)
     throw new Error('--to cannot be used with --release')
-  if (options.author !== undefined && !commit && !release)
-    throw new Error('--author requires --commit or --release')
+  if (options.to !== undefined && options.tag)
+    throw new Error('--to cannot be used with --tag')
+  if (options.author !== undefined && !commit && !options.tag && !release)
+    throw new Error('--author requires --commit, --tag, or --release')
   if (
     !release
     && (
       options.name !== undefined
       || options.draft !== undefined
       || options.prerelease !== undefined
+      || options.asset !== undefined
     )
   ) {
-    throw new Error('--name, --draft, and --prerelease require --release')
+    throw new Error('--name, --draft, --prerelease, and --asset require --release')
   }
 
   return {
@@ -71,7 +77,9 @@ export function resolveOptions(
     output: options.output ?? defaultConfig.cli.output,
     dry: options.dry ?? defaultConfig.cli.dry,
     commit,
+    tag: options.tag ?? defaultConfig.cli.tag,
     release,
+    assets: options.asset ?? [],
     bump: options.bump ?? defaultConfig.cli.bump,
     changelog: options.changelog ?? defaultConfig.cli.changelog,
     author: options.author ?? defaultConfig.cli.author,

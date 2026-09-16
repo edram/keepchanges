@@ -14,6 +14,7 @@
 - 为 npm 项目同步更新 `package.json` 中的 `version`
 - 为提交、对比页面、作者和共同作者生成仓库平台信息
 - 可选择自动提交、创建 tag、推送并发布 GitHub/Gitea Release
+- 可将文件或目录上传为 GitHub Release 附件
 - 没有 GitHub/Gitea token 时提供手动发布链接
 
 当前会收录 `feat`、`fix`、`perf`、带 `!` 的破坏性变更，以及包含
@@ -50,15 +51,17 @@ npx keepchanges <version> [options]
 | --- | --- | --- |
 | `<version>` | 必填 | 要生成的版本号。可以传入 `1.1.0` 或 `v1.1.0`。包含 `-` 的版本会作为预发布版本，例如 `1.1.0-beta.1`。 |
 | `--from <ref>` | 根据目标推断 | 指定读取 commit 时不包含在结果中的起始 Git ref，并覆盖自动选择结果。省略时，目标为 `HEAD` 会使用匹配前缀的最近 tag；显式传入 `--to` 会查找该目标之前匹配前缀的 tag。如果不存在前一个 tag，则从首个 commit 开始读取。`1.0.0` 这类版本会自动应用配置的 tag 前缀。 |
-| `--to <ref>` | `HEAD` | 指定读取 commit 的结束 Git ref。`1.1.0` 这类版本会自动应用配置的 tag 前缀。不能与 `--release` 一起使用；与 `--commit` 一起使用时必须指向当前 `HEAD`。 |
+| `--to <ref>` | `HEAD` | 指定读取 commit 的结束 Git ref。`1.1.0` 这类版本会自动应用配置的 tag 前缀。不能与 `--tag` 或 `--release` 一起使用；与 `--commit` 一起使用时必须指向当前 `HEAD`。 |
 | `--repository <source>` | 自动检测 | 指定 `owner/repo` 格式的 GitHub 仓库或 GitHub/Gitea 完整 URL。优先级高于 `package.json` 和 `origin`。 |
 | `--output <path>` | `CHANGELOG.md` | 指定 changelog 文件路径。相对路径以当前工作目录为基准。 |
 | `--dry` | `false` | 输出当前版本预览，不写入文件，也不执行 commit、tag、push 或发布 API。 |
 | `--commit` | `false` | 写入文件后创建 Git commit。只提交 changelog 和检测到的版本文件，默认提交信息为 `chore(release): v<version>`。 |
+| `--tag` | `false` | 写入并提交发布文件、创建 annotated tag，并推送 `HEAD` 和 tag，但不发布仓库 Release。适合先确定 release commit，再构建附件。 |
 | `--release` | `false` | 执行完整发布流程：写入文件、创建或复用 release commit、创建 annotated tag、推送 `HEAD` 和 tag，然后创建或更新仓库 Release。该参数隐含 `--commit`。 |
+| `--asset <path>` | 无 | 将文件、目录下的全部文件或通配符匹配结果上传到 GitHub Release。多个路径可重复传入该参数；需要同时使用 `--release` 并提供 GitHub token。 |
 | `--bump` / `--no-bump` | `true` | 控制是否更新检测到的项目版本文件。 |
 | `--changelog` / `--no-changelog` | `true` | 控制是否写入 changelog 文件；无论是否写入，都会生成 Release notes。 |
-| `--author <author>` | release bot | 设置自动创建的 release commit 作者，格式必须为 `"Name <email>"`；需要与 `--commit` 或 `--release` 一起使用。 |
+| `--author <author>` | release bot | 设置自动创建的 release commit 作者，格式必须为 `"Name <email>"`；需要与 `--commit`、`--tag` 或 `--release` 一起使用。 |
 | `-t, --token <token>` | 环境变量 | 仓库访问令牌，用于解析作者及发布 Release。GitHub 优先级为 `--token`、`GITHUB_TOKEN`、`GH_TOKEN`；Gitea 使用 `GITEA_TOKEN`。 |
 | `--tag-prefix <prefix>` | `v` | 设置查找和创建版本 tag 时使用的前缀，例如 `package@`。 |
 | `--no-tag-prefix` | `false` | 查找和创建不带前缀的版本 tag。 |
@@ -102,10 +105,36 @@ npx keepchanges 1.1.0 --commit \
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
 ```
 
-创建 Release，但不更新项目版本文件，也不写入 changelog：
+先由 keepchanges 完成版本更新、changelog、commit 和 tag，再基于该 commit
+构建并发布带附件的 GitHub Release：
 
 ```bash
-npx keepchanges 1.1.0 --release --no-bump --no-changelog
+npx keepchanges 1.1.0 --tag
+pnpm build
+npx keepchanges 1.1.0 --release --asset dist
+```
+
+先构建，再仅写入 changelog、创建 commit/tag 并发布附件：
+
+```bash
+pnpm build
+npx keepchanges 1.1.0 --release --no-bump --asset dist
+```
+
+先构建，再跳过版本更新和 changelog，直接创建 tag 并发布附件：
+
+```bash
+pnpm build
+npx keepchanges 1.1.0 --release --no-bump --no-changelog --asset dist
+```
+
+同时上传文件夹通配符匹配结果和另一个文件夹。建议给通配符加引号，确保始终由
+keepchanges 而不是 shell 展开：
+
+```bash
+npx keepchanges 1.1.0 --release \
+  --asset 'packages/*/dist' \
+  --asset artifacts
 ```
 
 使用无前缀版本 tag：
@@ -165,6 +194,10 @@ hash、`HEAD` 等非版本 ref 保持不变。自动查找 tag 时只考虑配�
 `--commit` 只提交 changelog 和检测到的版本文件。其他已暂存或未暂存的改动会
 保持原状。
 
+`--tag` 会执行文件更新、commit、tag 和 push，但不会创建仓库 Release。随后对
+同一版本执行 `--release` 会复用已有 tag，因此可以先确定最终 release commit，
+基于它构建产物，再上传附件。
+
 `--release` 在 tag 不存在时：
 
 1. 写入 changelog 并更新版本文件。
@@ -177,6 +210,11 @@ hash、`HEAD` 等非版本 ref 保持不变。自动查找 tag 时只考虑配�
 重新生成 Release notes，并创建或更新 Release。只有远程存在 tag 时会先将它
 拉取到本地；只有本地存在 tag 时会推送该 tag。本地与远程 tag 指向不同 commit
 时会停止，不会强制覆盖。
+
+GitHub Release 附件通过可重复的 `--asset` 参数指定。每个值都可以是文件、目录或
+通配符，目录会递归展开。每个文件按文件名上传，因此所选文件的文件名必须唯一。
+通配符没有匹配结果时，会在创建或推送 release tag 前停止。更新已有 Release 时，
+同名附件会被替换。目前 Gitea 不支持附件，自动上传附件必须提供 GitHub token。
 
 稳定版本会与前一个稳定 tag 对比，预发布版本会与最近的前一个 tag 对比。与
 `--release` 搭配的 `--dry` 优先级最高，不会执行任何写入或远程修改。手动链接

@@ -134,6 +134,98 @@ describe('gitHub authors', () => {
 })
 
 describe('gitHub releases', () => {
+  it('uploads release assets after creating the release', async () => {
+    const requests: Array<{ url: string, init?: RequestInit }> = []
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const url = String(input)
+      requests.push({ url, init })
+      if (url.endsWith('/releases/tags/v1.1.0'))
+        return new Response(null, { status: 404 })
+      if (url.endsWith('/releases')) {
+        return Response.json({
+          html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+          upload_url: 'https://uploads.github.com/repos/example/project/releases/42/assets{?name,label}',
+        })
+      }
+      return Response.json({}, { status: 201 })
+    })
+
+    await githubRepository.publishRelease!(
+      repository,
+      {
+        ...release,
+        assets: [{
+          name: 'keepchanges.mjs',
+          data: new TextEncoder().encode('release asset'),
+        }],
+      },
+      'secret',
+      fetch,
+    )
+
+    expect(requests[2]).toMatchObject({
+      url: 'https://uploads.github.com/repos/example/project/releases/42/assets?name=keepchanges.mjs',
+      init: {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer secret',
+          'content-type': 'application/octet-stream',
+        },
+      },
+    })
+    expect(new TextDecoder().decode(requests[2].init?.body as Uint8Array))
+      .toBe('release asset')
+  })
+
+  it('reports a failed release asset upload', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/releases/tags/v1.1.0'))
+        return new Response(null, { status: 404 })
+      if (url.endsWith('/releases')) {
+        return Response.json({
+          html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+          upload_url: 'https://uploads.github.com/repos/example/project/releases/42/assets{?name,label}',
+        })
+      }
+      return Response.json({}, { status: 422 })
+    })
+
+    await expect(githubRepository.publishRelease!(
+      repository,
+      {
+        ...release,
+        assets: [{
+          name: 'keepchanges.mjs',
+          data: new Uint8Array(),
+        }],
+      },
+      'secret',
+      fetch,
+    )).rejects.toThrow(
+      'GitHub release asset upload failed for keepchanges.mjs (422)',
+    )
+  })
+
+  it('requires GitHub to return an asset upload URL', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async input =>
+      String(input).endsWith('/releases/tags/v1.1.0')
+        ? new Response(null, { status: 404 })
+        : Response.json({
+            html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+          }))
+
+    await expect(githubRepository.publishRelease!(
+      repository,
+      {
+        ...release,
+        assets: [{ name: 'keepchanges.mjs', data: new Uint8Array() }],
+      },
+      'secret',
+      fetch,
+    )).rejects.toThrow('GitHub release response did not include an upload URL')
+  })
+
   it('creates a release when the tag has not been published', async () => {
     const requests: Array<{ url: string, init?: RequestInit }> = []
     const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
@@ -206,6 +298,49 @@ describe('gitHub releases', () => {
     expect(JSON.parse(requests[1].body!)).toMatchObject({
       tag_name: 'v1.1.0',
       body: release.body,
+    })
+  })
+
+  it('replaces an existing release asset with the same name', async () => {
+    const requests: Array<{ url: string, method?: string }> = []
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const url = String(input)
+      requests.push({ url, method: init?.method })
+      if (url.endsWith('/releases/tags/v1.1.0')) {
+        return Response.json({
+          id: 42,
+          assets: [{ id: 7, name: 'keepchanges.mjs' }],
+        })
+      }
+      if (init?.method === 'PATCH') {
+        return Response.json({
+          html_url: 'https://github.com/example/project/releases/tag/v1.1.0',
+          upload_url: 'https://uploads.github.com/repos/example/project/releases/42/assets{?name,label}',
+        })
+      }
+      return new Response(null, { status: init?.method === 'DELETE' ? 204 : 201 })
+    })
+
+    await githubRepository.publishRelease!(
+      repository,
+      {
+        ...release,
+        assets: [{
+          name: 'keepchanges.mjs',
+          data: new TextEncoder().encode('replacement'),
+        }],
+      },
+      'secret',
+      fetch,
+    )
+
+    expect(requests).toContainEqual({
+      url: 'https://api.github.com/repos/example/project/releases/assets/7',
+      method: 'DELETE',
+    })
+    expect(requests.at(-1)).toEqual({
+      url: 'https://uploads.github.com/repos/example/project/releases/42/assets?name=keepchanges.mjs',
+      method: 'POST',
     })
   })
 })

@@ -32,6 +32,7 @@ export interface KeepChangesConfig {
     to: string
     dry: boolean
     commit: boolean
+    tag: boolean
     release: boolean
     bump: boolean
     changelog: boolean
@@ -48,6 +49,7 @@ export const defaultConfig = {
     to: 'HEAD',
     dry: false,
     commit: false,
+    tag: false,
     release: false,
     bump: true,
     changelog: true,

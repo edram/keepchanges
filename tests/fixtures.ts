@@ -79,8 +79,11 @@ export async function command(cwd: string, executable: string, ...args: string[]
 }
 
 export function createChangesOptions(options: TestOptions, environment: CreateChangesEnvironment): Promise<void> {
-  const { version, ...cliOptions } = options
-  return createChanges(resolveOptions(version, cliOptions), {
+  const { version, assets, ...cliOptions } = options
+  return createChanges(resolveOptions(version, {
+    ...cliOptions,
+    asset: assets,
+  }), {
     stdout: () => {},
     colors: new Ansis(0),
     ...environment,
@@ -90,6 +93,7 @@ export function createChangesOptions(options: TestOptions, environment: CreateCh
 export function githubReleaseFetch(options: {
   requests?: GitHubRequest[]
   onPublish?: (body: Record<string, unknown>) => void
+  uploads?: Array<{ name: string, data: string }>
   tag?: string
 } = {}): typeof globalThis.fetch {
   const tag = options.tag ?? 'v1.1.0'
@@ -104,7 +108,17 @@ export function githubReleaseFetch(options: {
       return new Response(null, { status: 404 })
     if ((url.endsWith('/releases') && method === 'POST') || (url.endsWith('/releases/42') && method === 'PATCH')) {
       options.onPublish?.(body)
-      return Response.json({ html_url: `https://github.com/example/project/releases/tag/${tag}` })
+      return Response.json({
+        html_url: `https://github.com/example/project/releases/tag/${tag}`,
+        upload_url: 'https://uploads.github.com/repos/example/project/releases/42/assets{?name,label}',
+      })
+    }
+    if (url.startsWith('https://uploads.github.com/')) {
+      options.uploads?.push({
+        name: new URL(url).searchParams.get('name')!,
+        data: new TextDecoder().decode(init?.body as Uint8Array),
+      })
+      return Response.json({}, { status: 201 })
     }
     throw new Error(`Unexpected request: ${method} ${url}`)
   }
