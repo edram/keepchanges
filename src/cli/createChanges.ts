@@ -207,11 +207,17 @@ export async function createChanges(
     return
   }
 
-  const outputPath = resolve(environment.cwd, options.output)
-  const currentChangelog = await readChangelog(outputPath)
-  const releaseExists = hasRelease(currentChangelog, options.version)
-  await writeChangelog(outputPath, insertRelease(currentChangelog, release))
-  const versionPath = await updateVersion(environment.cwd, options.version)
+  let outputPath: string | undefined
+  let releaseExists = false
+  if (options.changelog) {
+    outputPath = resolve(environment.cwd, options.output)
+    const currentChangelog = await readChangelog(outputPath)
+    releaseExists = hasRelease(currentChangelog, options.version)
+    await writeChangelog(outputPath, insertRelease(currentChangelog, release))
+  }
+  const versionPath = options.bump
+    ? await updateVersion(environment.cwd, options.version)
+    : undefined
 
   if (options.commit || options.release) {
     await commitReleaseFiles(
@@ -267,7 +273,7 @@ function validateReleaseSupport(
 async function commitReleaseFiles(
   options: Options,
   cwd: string,
-  outputPath: string,
+  outputPath: string | undefined,
   versionPath: string | undefined,
   releaseExists: boolean,
   tag: string,
@@ -275,6 +281,8 @@ async function commitReleaseFiles(
   const releasePaths = [outputPath, versionPath].filter(
     path => path !== undefined,
   )
+  if (!releasePaths.length)
+    return
   const changes = await git(
     cwd,
     'status',

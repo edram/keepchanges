@@ -56,6 +56,8 @@ npx keepchanges <version> [options]
 | `--dry` | `false` | 输出当前版本预览，不写入文件，也不执行 commit、tag、push 或发布 API。 |
 | `--commit` | `false` | 写入文件后创建 Git commit。只提交 changelog 和检测到的版本文件，默认提交信息为 `chore(release): v<version>`。 |
 | `--release` | `false` | 执行完整发布流程：写入文件、创建或复用 release commit、创建 annotated tag、推送 `HEAD` 和 tag，然后创建或更新仓库 Release。该参数隐含 `--commit`。 |
+| `--bump` / `--no-bump` | `true` | 控制是否更新检测到的项目版本文件。 |
+| `--changelog` / `--no-changelog` | `true` | 控制是否写入 changelog 文件；无论是否写入，都会生成 Release notes。 |
 | `--author <author>` | release bot | 设置自动创建的 release commit 作者，格式必须为 `"Name <email>"`；需要与 `--commit` 或 `--release` 一起使用。 |
 | `-t, --token <token>` | 环境变量 | 仓库访问令牌，用于解析作者及发布 Release。GitHub 优先级为 `--token`、`GITHUB_TOKEN`、`GH_TOKEN`；Gitea 使用 `GITEA_TOKEN`。 |
 | `--tag-prefix <prefix>` | `v` | 设置查找和创建版本 tag 时使用的前缀，例如 `package@`。 |
@@ -98,6 +100,12 @@ npx keepchanges 1.1.0 --commit \
 
 ```bash
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
+```
+
+创建 Release，但不更新项目版本文件，也不写入 changelog：
+
+```bash
+npx keepchanges 1.1.0 --release --no-bump --no-changelog
 ```
 
 使用无前缀版本 tag：

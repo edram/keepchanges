@@ -143,6 +143,38 @@ it('updates files without committing and honors a custom output path', async () 
   ).toBe(head)
 })
 
+it('skips version and changelog updates when disabled', async () => {
+  const cwd = await createRepository()
+  await addPackage(cwd)
+  const head = (
+    await command(cwd, 'git', 'rev-parse', 'HEAD')
+  ).stdout.trim()
+  await writeFile(join(cwd, 'file.txt'), 'unrelated change')
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      commit: true,
+      bump: false,
+      changelog: false,
+    },
+    { cwd },
+  )
+
+  expect(
+    (await command(cwd, 'git', 'rev-parse', 'HEAD')).stdout.trim(),
+  ).toBe(head)
+  expect(
+    JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')).version,
+  ).toBe('1.0.0')
+  await expect(readFile(join(cwd, 'CHANGELOG.md'), 'utf8')).rejects.toMatchObject({
+    code: 'ENOENT',
+  })
+  expect(
+    (await command(cwd, 'git', 'status', '--short', 'file.txt')).stdout.trim(),
+  ).toBe('M file.txt')
+})
+
 it('prints a dry run without modifying files', async () => {
   const cwd = await createRepository()
   const existingChangelog = '# Changelog\n\n## v1.0.0\n\n- Initial release\n'

@@ -33,6 +33,8 @@ export interface KeepChangesConfig {
     dry: boolean
     commit: boolean
     release: boolean
+    bump: boolean
+    changelog: boolean
     author: string
     tagPrefix: string
     draft: boolean
@@ -47,6 +49,8 @@ export const defaultConfig = {
     dry: false,
     commit: false,
     release: false,
+    bump: true,
+    changelog: true,
     author: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>',
     tagPrefix: 'v',
     draft: false,

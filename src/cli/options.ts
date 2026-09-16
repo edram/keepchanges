@@ -10,6 +10,8 @@ export interface Options {
   dry: boolean
   commit: boolean
   release: boolean
+  bump: boolean
+  changelog: boolean
   author: string
   token?: string
   tagPrefix: string
@@ -70,6 +72,8 @@ export function resolveOptions(
     dry: options.dry ?? defaultConfig.cli.dry,
     commit,
     release,
+    bump: options.bump ?? defaultConfig.cli.bump,
+    changelog: options.changelog ?? defaultConfig.cli.changelog,
     author: options.author ?? defaultConfig.cli.author,
     token: options.token,
     tagPrefix,

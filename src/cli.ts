@@ -16,6 +16,12 @@ const cli = cac('keepchanges')
   .option('--dry', 'Preview without modifying files or remotes')
   .option('--commit', 'Commit the changelog and version update')
   .option('--release', 'Publish a repository release')
+  .option('--bump', 'Update the project version; --no-bump disables it', {
+    default: defaultConfig.cli.bump,
+  })
+  .option('--changelog', 'Write the changelog; --no-changelog disables it', {
+    default: defaultConfig.cli.changelog,
+  })
   .option('--author <author>', 'Commit author in "Name <email>" format')
   .option('-t, --token <token>', 'Repository token')
   .option('--no-tag-prefix', 'Create version tags without a prefix')

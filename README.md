@@ -57,6 +57,8 @@ npx keepchanges <version> [options]
 | `--dry` | `false` | Prints the current release preview without writing files or performing commit, tag, push, or release API mutations. |
 | `--commit` | `false` | Creates a Git commit after writing. It commits only the changelog and detected version file, using `chore(release): v<version>` by default. |
 | `--release` | `false` | Runs the complete release flow: writes files, creates or reuses a release commit, creates an annotated tag, pushes `HEAD` and the tag, then creates or updates the repository Release. This implies `--commit`. |
+| `--bump` / `--no-bump` | `true` | Controls whether the detected project version file is updated. |
+| `--changelog` / `--no-changelog` | `true` | Controls whether the changelog file is written. Release notes are generated either way. |
 | `--author <author>` | Release bot | Sets the generated release commit author in `"Name <email>"` format; requires `--commit` or `--release`. |
 | `-t, --token <token>` | Environment | Resolves authors and publishes Releases. GitHub precedence is `--token`, `GITHUB_TOKEN`, then `GH_TOKEN`; Gitea uses `GITEA_TOKEN`. |
 | `--tag-prefix <prefix>` | `v` | Sets the prefix used to find and create version tags, such as `package@`. |
@@ -99,6 +101,12 @@ Create a GitHub Release:
 
 ```bash
 GITHUB_TOKEN=github_pat_xxx npx keepchanges 1.1.0 --release
+```
+
+Create a Release without updating a project version file or changelog:
+
+```bash
+npx keepchanges 1.1.0 --release --no-bump --no-changelog
 ```
 
 Use version tags without a prefix:

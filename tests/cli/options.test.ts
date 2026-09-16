@@ -25,6 +25,8 @@ it('normalizes CLI arguments into command options', () => {
     dry: true,
     commit: true,
     release: false,
+    bump: defaultConfig.cli.bump,
+    changelog: defaultConfig.cli.changelog,
     author: 'Release Author <release@example.com>',
     token: 'secret',
     tagPrefix: 'package@',
@@ -47,6 +49,8 @@ it('uses centralized CLI and changelog defaults', () => {
     dry: defaultConfig.cli.dry,
     commit: defaultConfig.cli.commit,
     release: defaultConfig.cli.release,
+    bump: defaultConfig.cli.bump,
+    changelog: defaultConfig.cli.changelog,
     author: defaultConfig.cli.author,
     token: undefined,
     tagPrefix: defaultConfig.cli.tagPrefix,
@@ -61,6 +65,17 @@ it('uses centralized CLI and changelog defaults', () => {
 
 it('supports tags without a prefix', () => {
   expect(resolveOptions('1.1.0', { tagPrefix: false }).tagPrefix).toBe('')
+})
+
+it('supports releases without version or changelog file updates', () => {
+  expect(resolveOptions('1.1.0', {
+    release: true,
+    bump: false,
+    changelog: false,
+  })).toMatchObject({
+    bump: false,
+    changelog: false,
+  })
 })
 
 describe('cli validation', () => {
