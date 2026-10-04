@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { x } from 'tinyexec'
 import { expect, it } from 'vitest'
-import { commitFiles, createRepository } from './fixtures'
+import { command, commitFiles, createBareRepository, createRepository } from './fixtures'
 
 const cliPath = fileURLToPath(new URL('../dist/cli.mjs', import.meta.url))
 
@@ -44,7 +44,13 @@ it('reports command failures without a stack trace', async () => {
 })
 
 it('accepts tag creation without release metadata', async () => {
-  const result = await runCli('1.0.3', '--tag', '--dry')
+  const cwd = await createRepository()
+  const remote = await createBareRepository()
+  await command(cwd, 'git', 'remote', 'add', 'origin', remote)
+  const result = await x(process.execPath, [cliPath, '1.1.0', '--tag', '--dry'], {
+    nodeOptions: { cwd },
+    throwOnError: false,
+  })
 
   expect(result.exitCode).toBe(0)
   expect(result.stderr).toBe('')
