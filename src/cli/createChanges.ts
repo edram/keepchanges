@@ -146,7 +146,12 @@ export async function createChanges(
       : ''
   )
   const commits = parseCommits(
-    await readGitCommits(environment.cwd, resolvedFrom, resolvedTo),
+    await readGitCommits(
+      environment.cwd,
+      resolvedFrom,
+      resolvedTo,
+      options.commitFilterByPaths,
+    ),
   )
 
   if (token && repository) {

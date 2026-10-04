@@ -2,6 +2,7 @@
 
 import type { UnresolvedOptions } from './cli/options'
 import process from 'node:process'
+import { parseArgs } from 'node:util'
 import { cac } from 'cac'
 import { version } from '../package.json'
 import { createChanges } from './cli/createChanges'
@@ -11,6 +12,10 @@ import { defaultConfig } from './config'
 const cli = cac('keepchanges')
   .option('--from <ref>', 'Start Git reference')
   .option('--to <ref>', 'End Git reference')
+  .option('--commit-filter-by-paths <path>', 'Filter commits by Git pathspec; repeat for multiple paths', {
+    type: [],
+    default: [],
+  })
   .option('--repository <source>', 'Repository slug or URL')
   .option('--output <path>', 'Changelog file path')
   .option('--dry', 'Preview without modifying files or remotes')
@@ -49,6 +54,18 @@ cli
     versionArgument,
     options: UnresolvedOptions,
   ) => {
+    // CAC converts numeric strings to numbers, losing leading zeros in paths.
+    if (
+      options.commitFilterByPaths?.some(path => typeof path === 'number')
+      && options.commitFilterByPaths.every(path => typeof path === 'string' || typeof path === 'number')
+    ) {
+      options.commitFilterByPaths = parseArgs({
+        args: cli.rawArgs.slice(2),
+        options: { 'commit-filter-by-paths': { type: 'string', multiple: true } },
+        strict: false,
+        allowPositionals: true,
+      }).values['commit-filter-by-paths'] as string[]
+    }
     await createChanges(
       resolveOptions(versionArgument, options),
       { cwd: process.cwd() },

@@ -1,9 +1,9 @@
 import type { Output } from 'tinyexec'
 import type { CreateChangesEnvironment } from '../src/cli/createChanges'
 import type { Options } from '../src/cli/options'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { Ansis } from 'ansis'
 import { x } from 'tinyexec'
 import { onTestFinished } from 'vitest'
@@ -69,6 +69,16 @@ export async function commit(cwd: string, message: string, body?: string): Promi
   await writeFile(join(cwd, 'file.txt'), message)
   await command(cwd, 'git', 'add', 'file.txt')
   await command(cwd, 'git', 'commit', '-m', message, ...(body ? ['-m', body] : []))
+}
+
+export async function commitFiles(cwd: string, message: string, files: string[]): Promise<void> {
+  for (const file of files) {
+    const path = join(cwd, file)
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, message)
+  }
+  await command(cwd, 'git', 'add', '--', ...files)
+  await command(cwd, 'git', 'commit', '-m', message)
 }
 
 export async function command(cwd: string, executable: string, ...args: string[]): Promise<Output> {

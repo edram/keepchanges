@@ -11,6 +11,7 @@ Inspired by [changelogithub](https://github.com/antfu-collective/changelogithub)
 ## Features
 
 - Generates release notes from Conventional Commits between Git tags
+- Filters commits by Git paths for package changelogs and Release notes
 - Inserts new releases into an existing `CHANGELOG.md` and updates `package.json#version`
   for npm projects
 - Disables version bumps and changelog writes independently with `--no-bump` and
@@ -153,6 +154,17 @@ npx keepchanges 1.1.0 --no-tag-prefix
 npx keepchanges 1.1.0 --tag-prefix 'package@'
 ```
 
+Preview a package's notes from the repository root, including changes to shared code:
+
+```bash
+npx keepchanges 1.1.0 --dry \
+  --no-bump \
+  --tag-prefix 'core@' \
+  --output packages/core/CHANGELOG.md \
+  --commit-filter-by-paths packages/core \
+  --commit-filter-by-paths shared
+```
+
 Regenerate a historical release:
 
 ```bash
@@ -170,6 +182,7 @@ npx keepchanges <version> [options]
 | `<version>` | Required | Version to generate, such as `1.1.0`, `v1.1.0`, or `1.1.0-beta.1`. |
 | `--from <ref>` | Inferred from target | Sets the exclusive starting Git ref used to read commits. |
 | `--to <ref>` | `HEAD` | Sets the ending Git ref. Cannot be combined with `--tag` or `--release`. |
+| `--commit-filter-by-paths <path>` | Entire repository | Includes commits that touch matching Git paths. Repeatable; each occurrence requires a value. |
 | `--repository <source>` | Auto-detected | Sets a GitHub `owner/repo` slug or complete GitHub/Gitea URL. |
 | `--output <path>` | `CHANGELOG.md` | Sets the changelog file path. |
 | `--dry` | `false` | Prints a preview without writing files or performing commit, tag, push, or release API mutations. |
@@ -229,6 +242,22 @@ different prefixes are independent.
 When `--to` is provided without `--from`, keepchanges finds the previous matching tag relative
 to that target instead of the current `HEAD`. With `--commit`, `--to` must resolve to the current
 `HEAD`.
+
+### Path filtering
+
+`--commit-filter-by-paths <path>` selects commits according to Git pathspec rules.
+For ordinary inclusion paths, matching any supplied path is enough.
+Paths are relative to the directory where you run the command; use `.` for that directory.
+Quote globs, such as `--commit-filter-by-paths 'packages/*/src'`, so Git receives the pattern.
+Matching uses Git history, so paths that have since been deleted remain valid.
+
+Matching commits keep their complete descriptions, including commits that also touch other
+packages. The filter controls the content of the changelog and Release notes. Version bumps
+still target the version file in the working directory; configure `--output` and `--tag-prefix`
+separately. Comparison links continue to show the repository's full changes between refs.
+
+If no commits match, the notes contain `No significant changes`. Enabled version updates,
+changelog writes, commits, tags, and Release publishing still proceed.
 
 ### Commit and release safety
 

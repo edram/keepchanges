@@ -1,6 +1,7 @@
+import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import { git, readGitCommits, resolveVersionRef } from '../src/git'
-import { command, createRepository } from './fixtures'
+import { command, commitFiles, createRepository } from './fixtures'
 
 it('reads raw commits from a Git range', async () => {
   const cwd = await createRepository()
@@ -16,6 +17,59 @@ it('reads raw commits from a Git range', async () => {
       email: 'author@example.com',
     },
   }])
+})
+
+it.each([
+  {
+    paths: ['packages/core'],
+    subjects: ['feat: coordinate core and CLI', 'fix(core): repair parser'],
+  },
+  {
+    paths: ['packages/core', 'shared'],
+    subjects: ['feat: coordinate core and CLI', 'fix: update shared utils', 'fix(core): repair parser'],
+  },
+  {
+    paths: [':(glob)packages/core/*.ts'],
+    subjects: ['feat: coordinate core and CLI', 'fix(core): repair parser'],
+  },
+  { paths: ['missing'], subjects: [] },
+  {
+    paths: [],
+    subjects: ['feat: coordinate core and CLI', 'fix: update shared utils', 'fix(core): repair parser', 'feat: add CLI'],
+  },
+])('reads commits matching Git pathspecs $paths', async ({ paths, subjects }) => {
+  const cwd = await createRepository()
+  await commitFiles(cwd, 'fix(core): repair parser', ['packages/core/index.ts'])
+  await commitFiles(cwd, 'fix: update shared utils', ['shared/utils.ts'])
+  await commitFiles(cwd, 'feat: coordinate core and CLI', ['packages/core/index.ts', 'packages/cli/index.ts'])
+
+  const commits = await readGitCommits(cwd, 'v1.0.0', 'HEAD', paths)
+
+  expect(commits.map(commit => commit.subject)).toEqual(subjects)
+})
+
+it('reads commits for paths that have been deleted', async () => {
+  const cwd = await createRepository()
+  await commitFiles(cwd, 'feat(core): add parser', ['packages/core/index.ts'])
+  await command(cwd, 'git', 'rm', 'packages/core/index.ts')
+  await command(cwd, 'git', 'commit', '-m', 'fix(core): remove parser')
+
+  const commits = await readGitCommits(cwd, 'v1.0.0', 'HEAD', ['packages/core'])
+
+  expect(commits.map(commit => commit.subject)).toEqual([
+    'fix(core): remove parser',
+    'feat(core): add parser',
+  ])
+})
+
+it('resolves path filters relative to the command working directory', async () => {
+  const cwd = await createRepository()
+  await commitFiles(cwd, 'fix(core): repair parser', ['packages/core/index.ts'])
+  await commitFiles(cwd, 'fix(cli): repair output', ['packages/cli/index.ts'])
+
+  const commits = await readGitCommits(join(cwd, 'packages', 'core'), 'v1.0.0', 'HEAD', ['.'])
+
+  expect(commits.map(commit => commit.subject)).toEqual(['fix(core): repair parser'])
 })
 
 it('reports Git stderr when a command fails', async () => {

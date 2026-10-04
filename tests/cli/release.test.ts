@@ -5,6 +5,7 @@ import { expect, it } from 'vitest'
 import {
   command,
   commit,
+  commitFiles,
   createChangesOptions,
   createReleaseRepository,
   githubReleaseFetch,
@@ -90,6 +91,35 @@ it('creates and pushes a release without Git identity configuration', async () =
   expect(publish?.body?.body).toContain('### 🚀 Features')
   expect(publish?.body?.body).toContain('by @test-author')
   expect(publish?.body?.body).not.toContain('## v1.1.0')
+})
+
+it.each([
+  { paths: ['packages/core'], note: 'Repair parser' },
+  { paths: ['missing'], note: 'No significant changes' },
+])('publishes filtered notes for $paths without changing release targets', async ({ paths, note }) => {
+  const { cwd, remote } = await createReleaseRepository()
+  await commitFiles(cwd, 'fix(core): repair parser', ['packages/core/index.ts'])
+  let body = ''
+
+  await createChangesOptions(
+    {
+      version: '1.1.0',
+      release: true,
+      token: 'secret',
+      commitFilterByPaths: paths,
+      output: 'packages/core/CHANGELOG.md',
+    },
+    {
+      cwd,
+      fetch: githubReleaseFetch({ onPublish: release => body = release.body as string }),
+    },
+  )
+
+  expect(body).toContain(note)
+  expect(body).not.toContain('Add CLI')
+  expect(await readFile(join(cwd, 'packages/core/CHANGELOG.md'), 'utf8')).toContain(body)
+  expect(JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')).version).toBe('1.1.0')
+  expect((await command(remote, 'git', 'tag', '--list', 'v1.1.0')).stdout.trim()).toBe('v1.1.0')
 })
 
 it('uploads every file from release asset directories', async () => {

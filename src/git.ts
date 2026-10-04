@@ -128,16 +128,22 @@ export async function getRemoteTagCommit(
   return (peeled || refs[0])?.split(/\s+/)[0]
 }
 
+/**
+ * Path filtering follows changelogithub's Git pathspec approach, relative to cwd.
+ * @see https://github.com/antfu-collective/changelogithub/blob/main/src/git.ts#L73
+ */
 export async function readGitCommits(
   cwd: string,
   from: string,
   to: string,
+  paths: string[] = [],
 ): Promise<RawCommit[]> {
   const log = await git(
     cwd,
     'log',
     from ? `${from}..${to}` : to,
     '--format=%h%x00%an%x00%ae%x00%s%x00%b%x00',
+    ...(paths.length ? ['--', ...paths] : []),
   )
   const fields = log.split('\0')
   const commits: RawCommit[] = []

@@ -10,6 +10,7 @@
 ## 功能
 
 - 根据 Git tag 之间的 Conventional Commits 生成 Release notes
+- 按 Git 路径筛选提交，生成 package 的 changelog 和 Release notes
 - 将新版本插入现有 `CHANGELOG.md`，并为 npm 项目更新 `package.json#version`
 - 可分别通过 `--no-bump` 和 `--no-changelog` 关闭版本更新与 changelog 写入
 - 可自动创建 release commit、annotated tag 并推送到远程仓库
@@ -148,6 +149,17 @@ npx keepchanges 1.1.0 --no-tag-prefix
 npx keepchanges 1.1.0 --tag-prefix 'package@'
 ```
 
+在仓库根目录预览 package 的记录，同时包含共享代码的变更：
+
+```bash
+npx keepchanges 1.1.0 --dry \
+  --no-bump \
+  --tag-prefix 'core@' \
+  --output packages/core/CHANGELOG.md \
+  --commit-filter-by-paths packages/core \
+  --commit-filter-by-paths shared
+```
+
 重新生成历史版本：
 
 ```bash
@@ -165,6 +177,7 @@ npx keepchanges <version> [options]
 | `<version>` | 必填 | 要生成的版本号，例如 `1.1.0`、`v1.1.0` 或 `1.1.0-beta.1`。 |
 | `--from <ref>` | 根据目标推断 | 指定读取 commit 时不包含在结果中的起始 Git ref。 |
 | `--to <ref>` | `HEAD` | 指定结束 Git ref。不能与 `--tag` 或 `--release` 一起使用。 |
+| `--commit-filter-by-paths <path>` | 整个仓库 | 收录修改了匹配 Git 路径的提交。可重复使用，每次必须提供一个值。 |
 | `--repository <source>` | 自动检测 | 指定 GitHub `owner/repo` 或 GitHub/Gitea 完整 URL。 |
 | `--output <path>` | `CHANGELOG.md` | 指定 changelog 文件路径。 |
 | `--dry` | `false` | 输出预览，不执行文件写入、commit、tag、push 或发布 API。 |
@@ -222,6 +235,22 @@ GitHub 和 Gitea 均支持作者解析与 Release 发布。Gitea 使用 `GITEA_T
 显式传入 `--to` 而不传 `--from` 时，会相对于该目标查找前一个匹配的 tag，
 而不是使用当前 `HEAD` 的最近 tag。与 `--commit` 一起使用时，`--to` 必须指向
 当前 `HEAD`。
+
+### 路径筛选
+
+`--commit-filter-by-paths <path>` 按 Git pathspec 规则筛选提交。
+对于普通包含路径，匹配任意一个路径即可。
+路径相对于执行命令的目录，`.` 表示该目录。glob 需要加引号，例如
+`--commit-filter-by-paths 'packages/*/src'`，确保 Git 收到完整模式。
+匹配基于 Git 历史，因此已经删除的路径仍然有效。
+
+匹配的提交会保留完整描述，包括同时修改了其他 package 的提交。筛选只影响
+changelog 和 Release notes 的内容。版本更新仍作用于当前目录中的版本文件；
+`--output` 和 `--tag-prefix` 需要分别配置。版本对比链接仍展示两个 ref 之间的
+整个仓库变更。
+
+没有匹配的提交时，记录会包含 `No significant changes`。已启用的版本更新、
+changelog 写入、commit、tag 和 Release 发布仍会照常执行。
 
 ### Commit 和发布安全
 

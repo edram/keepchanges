@@ -5,6 +5,7 @@ export interface Options {
   version: string
   from?: string
   to: string
+  commitFilterByPaths: string[]
   repository?: string
   output: string
   dry: boolean
@@ -45,6 +46,11 @@ export function resolveOptions(
 
   const commit = options.commit ?? defaultConfig.cli.commit
   const release = options.release ?? defaultConfig.cli.release
+  const commitFilterByPaths = options.commitFilterByPaths ?? []
+  // CAC wraps missing values in arrays before checking required option values.
+  if (commitFilterByPaths.some(path => typeof path !== 'string' || path.length === 0))
+    throw new Error('--commit-filter-by-paths requires a non-empty path')
+
   let tagPrefix = defaultConfig.cli.tagPrefix
   if (typeof options.tagPrefix === 'string')
     tagPrefix = options.tagPrefix
@@ -73,6 +79,7 @@ export function resolveOptions(
     version,
     from: options.from,
     to: options.to ?? defaultConfig.cli.to,
+    commitFilterByPaths,
     repository: options.repository,
     output: options.output ?? defaultConfig.cli.output,
     dry: options.dry ?? defaultConfig.cli.dry,
