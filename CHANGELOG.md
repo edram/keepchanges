@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0
+
+### 🚀 Features
+
+- **cli**: Filter commits by paths &nbsp;-&nbsp; by **edram** and **Codex GPT-6** [<samp>(a6b5f)</samp>](https://github.com/edram/keepchanges/commit/a6b5f51)
+
+##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/edram/keepchanges/compare/v1.0.3...v1.1.0)
+
 ## v1.0.3
 
 ### 🚀 Features
